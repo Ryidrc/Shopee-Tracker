@@ -1,6 +1,7 @@
+
 /// <reference lib="dom" />
 import React, { useState, useEffect, useRef } from 'react';
-import { SalesRecord, TaskCompletion, Product, SHOPS, INITIAL_TASKS, Task, PricingItem, CompetitorItem, VideoLog, ShopID } from './types';
+import { SalesRecord, TaskCompletion, Product, SHOPS, INITIAL_TASKS, Task, PricingItem, CompetitorItem, VideoLog, ShopID, WorkLog } from './types';
 import { AnalyticsView } from './views/AnalyticsView';
 import { TaskTrackerView } from './views/TaskTrackerView';
 import { PricingView } from './views/PricingView';
@@ -10,6 +11,7 @@ import { InputModal } from './components/InputModal';
 import { ProductModal } from './components/ProductModal';
 import { VideoLogModal } from './components/VideoLogModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
+import { ImportSelectionModal } from './components/ImportSelectionModal';
 import { INITIAL_PRICING } from './data';
 import * as XLSX from 'xlsx';
 
@@ -18,9 +20,6 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
   
-  // Import Target Shop State
-  const [importTargetShop, setImportTargetShop] = useState<ShopID>('shop1');
-
   // Lifted Date Range State (so we can update it after import)
   const [dateRange, setDateRange] = useState({ 
     start: new Date(new Date().setDate(new Date().getDate() - 6)).toISOString().split('T')[0], 
@@ -70,6 +69,13 @@ function App() {
     } catch (e) { return []; }
   });
 
+  const [workLogs, setWorkLogs] = useState<WorkLog[]>(() => {
+    try {
+        const saved = localStorage.getItem('shopee_work_logs');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem('shopee_hero_products');
@@ -111,6 +117,11 @@ function App() {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [editingVideoLog, setEditingVideoLog] = useState<VideoLog | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Import State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [pendingImportData, setPendingImportData] = useState<Omit<SalesRecord, 'id' | 'shopId'>[]>([]);
+  const [importSummary, setImportSummary] = useState({ count: 0, minDate: '', maxDate: '', fileName: '' });
 
   // -- CONFIRMATION MODAL STATE --
   const [confirmModal, setConfirmModal] = useState<{
@@ -182,8 +193,8 @@ function App() {
     localStorage.setItem('shopee_tasks_def', JSON.stringify(updatedTasks));
   };
 
-  const handleEditTask = (taskId: string, newText: string, newFrequency: 'daily' | 'weekly') => {
-    const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, text: newText, frequency: newFrequency } : t);
+  const handleEditTask = (taskId: string, newText: string, newFrequency: 'daily' | 'weekly', newTime?: string) => {
+    const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, text: newText, frequency: newFrequency, reminderTime: newTime } : t);
     setTasks(updatedTasks);
     localStorage.setItem('shopee_tasks_def', JSON.stringify(updatedTasks));
   };
@@ -210,6 +221,19 @@ function App() {
     localStorage.setItem('shopee_task_completions', JSON.stringify(updated));
   };
 
+  const handleUpdateWorkLog = (log: WorkLog) => {
+      const existingIdx = workLogs.findIndex(l => l.date === log.date && l.shopId === log.shopId);
+      let updated;
+      if (existingIdx > -1) {
+          updated = [...workLogs];
+          updated[existingIdx] = log;
+      } else {
+          updated = [...workLogs, log];
+      }
+      setWorkLogs(updated);
+      localStorage.setItem('shopee_work_logs', JSON.stringify(updated));
+  }
+
   const handleAddProduct = (newProduct: Product) => {
     setProducts(prev => {
         const updated = [...prev, newProduct];
@@ -218,27 +242,58 @@ function App() {
         return sanitized;
     });
 
-    if (newProduct.sku && newProduct.image) {
+    if (newProduct.sku) {
+      const sku = newProduct.sku.trim();
       setPricingItems(prevItems => {
-        const updatedItems = prevItems.map(item => {
-          if (item.sku.trim().toLowerCase() === newProduct.sku?.trim().toLowerCase()) {
-             return { ...item, image: newProduct.image };
-          }
-          return item;
-        });
-        const hasChanges = JSON.stringify(updatedItems) !== JSON.stringify(prevItems);
-        if (hasChanges) {
-           localStorage.setItem('shopee_pricing_data', JSON.stringify(updatedItems));
-           return updatedItems;
+        const skuExists = prevItems.some(i => i.sku.toLowerCase() === sku.toLowerCase());
+        
+        if (skuExists) {
+           if (newProduct.image) {
+             const updatedItems = prevItems.map(item => {
+                if (item.sku.toLowerCase() === sku.toLowerCase()) {
+                   return { ...item, image: newProduct.image };
+                }
+                return item;
+             });
+             localStorage.setItem('shopee_pricing_data', JSON.stringify(updatedItems));
+             return updatedItems;
+           }
+           return prevItems;
+        } else {
+           const timestamp = Date.now();
+           const newPricingItems: PricingItem[] = SHOPS.map(shop => ({
+              id: `item-${timestamp}-${shop.id}`,
+              sku: sku,
+              shopId: shop.id,
+              productName: newProduct.name,
+              image: newProduct.image || '',
+              brand: '', 
+              stock: 0,
+              rating: 5.0, 
+              price: 0,
+              priceNet: 0,
+              biaya1250: 1250,
+              voucher: 0,
+              discount: 0,
+              hargaJual: 0,
+              flashSale: 0,
+              promotion: 0,
+              affiliate: 5, 
+              admin: 8,     
+              ongkir: 4,    
+              total: 0
+           }));
+           
+           const updated = [...prevItems, ...newPricingItems];
+           localStorage.setItem('shopee_pricing_data', JSON.stringify(updated));
+           return updated;
         }
-        return prevItems;
       });
     }
   };
 
   const handleDeleteProduct = (id: string) => {
     if (!id) { alert("Error: ID missing"); return; }
-    
     openConfirm("Delete Product?", "Remove this product from the Top 10 list?", () => {
         setProducts(prev => {
             const targetId = String(id);
@@ -255,7 +310,6 @@ function App() {
     localStorage.setItem('shopee_pricing_data', JSON.stringify(updatedItems));
   }
   
-  // Handler for PricingView to request deletion via Modal
   const handleRequestDeletePricing = (id: string) => {
       const itemToDelete = pricingItems.find(i => i.id === id);
       if (!itemToDelete) return;
@@ -273,7 +327,6 @@ function App() {
     localStorage.setItem('shopee_competitors', JSON.stringify(updated));
   }
 
-  // Handler for CompetitorView to request deletion via Modal
   const handleRequestDeleteCompetitor = (id: string) => {
      openConfirm("Stop Tracking?", "Remove this competitor from your list?", () => {
         const updated = competitors.filter(c => c.id !== id);
@@ -345,6 +398,7 @@ function App() {
         pricingItems,
         competitors,
         videoLogs,
+        workLogs,
         exportDate: new Date().toISOString()
     };
     
@@ -375,7 +429,6 @@ function App() {
         
         const data = JSON.parse(content);
         
-        // Validate basic structure
         if (!data.salesData && !data.products && !data.pricingItems) {
             alert("Invalid backup file format or empty data.");
             return;
@@ -393,6 +446,10 @@ function App() {
             if (data.taskCompletions) {
                 setTaskCompletions(data.taskCompletions);
                 localStorage.setItem('shopee_task_completions', JSON.stringify(data.taskCompletions));
+            }
+            if (data.workLogs) {
+                setWorkLogs(data.workLogs);
+                localStorage.setItem('shopee_work_logs', JSON.stringify(data.workLogs));
             }
             if (data.products) {
                 const cleanProducts = sanitizeProducts(data.products);
@@ -426,19 +483,12 @@ function App() {
   };
 
   const handleImportExcelClick = () => {
-    if (!importTargetShop) {
-        alert("Please select a target shop from the dropdown next to the import button first.");
-        return;
-    }
     excelInputRef.current?.click();
   };
 
   const handleExcelUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    const targetShopId = importTargetShop;
-    const targetShopName = SHOPS.find(s => s.id === targetShopId)?.name;
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -451,7 +501,7 @@ function App() {
             
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true }) as any[][];
             
-            const newRecords: SalesRecord[] = [];
+            const tempRecords: Omit<SalesRecord, 'id' | 'shopId'>[] = [];
             let importCount = 0;
             let minDate = '';
             let maxDate = '';
@@ -513,10 +563,8 @@ function App() {
                     convRaw = parseShopeeNumber(rawConv) / 100;
                 }
 
-                const record: SalesRecord = {
-                    id: `${isoDate}-${targetShopId}-${Date.now()}-${Math.random()}`,
+                const record = {
                     date: isoDate,
-                    shopId: targetShopId,
                     penjualan: sales,
                     pesanan: orders,
                     konversi: convRaw,
@@ -526,23 +574,19 @@ function App() {
                     lateShipmentRate: undefined
                 };
 
-                newRecords.push(record);
+                tempRecords.push(record);
                 importCount++;
             }
 
             if (importCount > 0) {
-                setSalesData(prev => {
-                    const filtered = prev.filter(p => !newRecords.some(n => n.date === p.date && n.shopId === p.shopId));
-                    const updated = [...filtered, ...newRecords];
-                    localStorage.setItem('shopee_sales_data', JSON.stringify(updated));
-                    return updated;
+                setPendingImportData(tempRecords);
+                setImportSummary({
+                    count: importCount,
+                    minDate,
+                    maxDate,
+                    fileName: file.name
                 });
-                
-                if (minDate && maxDate) {
-                    setDateRange({ start: minDate, end: maxDate });
-                }
-                
-                alert(`Success! Imported ${importCount} rows for ${targetShopName}.\nDashboard date range updated.`);
+                setIsImportModalOpen(true);
             } else {
                 alert("No valid daily data found. Please check if the Excel matches the expected format.");
             }
@@ -556,6 +600,40 @@ function App() {
     if (excelInputRef.current) excelInputRef.current.value = '';
   }
 
+  const handleConfirmImport = (targetShopId: ShopID) => {
+      // Convert pending records to full SalesRecords with ID and ShopID
+      const newRecords: SalesRecord[] = pendingImportData.map(r => ({
+          ...r,
+          shopId: targetShopId,
+          id: `${r.date}-${targetShopId}-${Date.now()}-${Math.random()}`
+      }));
+
+      setSalesData(prev => {
+          // Remove existing records for the same dates and shop to avoid duplicates
+          const filtered = prev.filter(p => !newRecords.some(n => n.date === p.date && n.shopId === p.shopId));
+          const updated = [...filtered, ...newRecords];
+          localStorage.setItem('shopee_sales_data', JSON.stringify(updated));
+          return updated;
+      });
+
+      if (importSummary.minDate && importSummary.maxDate) {
+          setDateRange({ start: importSummary.minDate, end: importSummary.maxDate });
+      }
+
+      const targetShopName = SHOPS.find(s => s.id === targetShopId)?.name;
+      alert(`Success! Imported ${importSummary.count} rows for ${targetShopName}.\nDashboard date range updated.`);
+      
+      setIsImportModalOpen(false);
+      setPendingImportData([]);
+  };
+
+  const navButtonClass = (active: boolean) => 
+    `px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+      active 
+      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' 
+      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+    }`;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-50 flex flex-col transition-colors duration-200 relative">
       <ConfirmationModal 
@@ -564,6 +642,15 @@ function App() {
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
         onCancel={closeConfirm}
+      />
+
+      <ImportSelectionModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onConfirm={handleConfirmImport}
+        recordCount={importSummary.count}
+        dateRange={{ start: importSummary.minDate, end: importSummary.maxDate }}
+        fileName={importSummary.fileName}
       />
 
       <input 
@@ -581,76 +668,64 @@ function App() {
         accept=".xlsx, .xls"
       />
       
-      {/* Navigation */}
-      <nav className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 transition-colors duration-200">
+      {/* Minimalistic Navigation */}
+      <nav className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md sticky top-0 z-40 transition-colors duration-200 border-b border-slate-100 dark:border-slate-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-2">
-               <div className="bg-shopee-orange text-white p-1.5 rounded-lg">
-                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+          <div className="flex justify-between items-center h-16">
+            
+            {/* Logo */}
+            <div className="flex items-center gap-2 mr-4">
+               <div className="bg-shopee-orange text-white p-1.5 rounded-lg shadow-sm">
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                </div>
-               <span className="font-bold text-xl text-shopee-orange tracking-tight hidden md:inline">Shopee Tracker</span>
-               <span className="font-bold text-xl text-shopee-orange tracking-tight md:hidden">Tracker</span>
+               <span className="font-bold text-lg tracking-tight hidden md:inline dark:text-white text-slate-900">Tracker</span>
             </div>
             
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <div className="hidden md:flex space-x-4 lg:space-x-8">
-                <button onClick={() => setView('analytics')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${view === 'analytics' ? 'border-shopee-orange text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Dashboard</button>
-                <button onClick={() => setView('pricing')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${view === 'pricing' ? 'border-shopee-orange text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Pricing</button>
-                <button onClick={() => setView('videos')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${view === 'videos' ? 'border-shopee-orange text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Videos</button>
-                <button onClick={() => setView('competitors')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${view === 'competitors' ? 'border-shopee-orange text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Competitors</button>
-                <button onClick={() => setView('tasks')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${view === 'tasks' ? 'border-shopee-orange text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Tasks</button>
-              </div>
+            {/* Desktop Tabs */}
+            <div className="hidden md:flex space-x-1">
+                <button onClick={() => setView('analytics')} className={navButtonClass(view === 'analytics')}>Dashboard</button>
+                <button onClick={() => setView('tasks')} className={navButtonClass(view === 'tasks')}>Productivity</button>
+                <button onClick={() => setView('pricing')} className={navButtonClass(view === 'pricing')}>Pricing</button>
+                <button onClick={() => setView('competitors')} className={navButtonClass(view === 'competitors')}>Competitors</button>
+                <button onClick={() => setView('videos')} className={navButtonClass(view === 'videos')}>Videos</button>
+            </div>
 
-              {/* Data Controls */}
-              <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2">
-                  <div className="relative flex items-center bg-white dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1 mr-2">
-                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-2 uppercase">Import To:</span>
-                     <div className="relative">
-                        <select 
-                          value={importTargetShop} 
-                          onChange={(e) => setImportTargetShop(e.target.value as ShopID)}
-                          className="bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none pr-6 cursor-pointer appearance-none"
-                        >
-                          {SHOPS.map(s => <option key={s.id} value={s.id} className="text-slate-900 bg-white">{s.name}</option>)}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-slate-500">
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                        </div>
-                     </div>
+            {/* Right Controls */}
+            <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                      <button onClick={handleImportExcelClick} className="p-2 text-slate-500 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors flex items-center gap-2" title="Import Excel">
+                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                         <span className="text-xs font-bold hidden sm:inline">Import Sheet</span>
+                      </button>
+                      <button onClick={handleExportData} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" title="Export Backup">
+                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      </button>
+                       <button onClick={handleImportClick} className="p-2 text-slate-500 hover:text-orange-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" title="Import Backup">
+                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                      </button>
                   </div>
 
-                  <button onClick={handleImportExcelClick} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors" title="Import Shopee Excel">
-                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </button>
-                  <button onClick={handleExportData} className="p-2 text-slate-500 hover:text-shopee-orange hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Export Backup">
-                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  </button>
-                   <button onClick={handleImportClick} className="p-2 text-slate-500 hover:text-shopee-orange hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Import Backup (JSON)">
-                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                  </button>
-                  {/* REMOVED: Global Reset Button to prevent accidental hard resets */}
-              </div>
+                  <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                {isDarkMode ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
-              </button>
+                  <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    {isDarkMode ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
+                  </button>
             </div>
           </div>
         </div>
         
-        {/* Mobile Menu */}
-        <div className="md:hidden border-t border-slate-200 dark:border-slate-700 flex overflow-x-auto no-scrollbar">
-             <button onClick={() => setView('analytics')} className={`flex-1 py-3 text-sm font-medium text-center whitespace-nowrap px-4 ${view === 'analytics' ? 'text-shopee-orange bg-slate-50 dark:bg-slate-700' : 'text-slate-500 dark:text-slate-400'}`}>Dashboard</button>
-             <button onClick={() => setView('pricing')} className={`flex-1 py-3 text-sm font-medium text-center whitespace-nowrap px-4 ${view === 'pricing' ? 'text-shopee-orange bg-slate-50 dark:bg-slate-700' : 'text-slate-500 dark:text-slate-400'}`}>Pricing</button>
-             <button onClick={() => setView('videos')} className={`flex-1 py-3 text-sm font-medium text-center whitespace-nowrap px-4 ${view === 'videos' ? 'text-shopee-orange bg-slate-50 dark:bg-slate-700' : 'text-slate-500 dark:text-slate-400'}`}>Videos</button>
-             <button onClick={() => setView('competitors')} className={`flex-1 py-3 text-sm font-medium text-center whitespace-nowrap px-4 ${view === 'competitors' ? 'text-shopee-orange bg-slate-50 dark:bg-slate-700' : 'text-slate-500 dark:text-slate-400'}`}>Competitors</button>
-             <button onClick={() => setView('tasks')} className={`flex-1 py-3 text-sm font-medium text-center whitespace-nowrap px-4 ${view === 'tasks' ? 'text-shopee-orange bg-slate-50 dark:bg-slate-700' : 'text-slate-500 dark:text-slate-400'}`}>Tasks</button>
+        {/* Mobile Menu (Horizontal Scroll) */}
+        <div className="md:hidden border-t border-slate-100 dark:border-slate-700 flex overflow-x-auto no-scrollbar py-2 px-2 gap-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md">
+             <button onClick={() => setView('analytics')} className={navButtonClass(view === 'analytics')}>Dashboard</button>
+             <button onClick={() => setView('tasks')} className={navButtonClass(view === 'tasks')}>Productivity</button>
+             <button onClick={() => setView('pricing')} className={navButtonClass(view === 'pricing')}>Pricing</button>
+             <button onClick={() => setView('competitors')} className={navButtonClass(view === 'competitors')}>Competitors</button>
+             <button onClick={() => setView('videos')} className={navButtonClass(view === 'videos')}>Videos</button>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full animate-fade-in">
         {view === 'analytics' ? (
           <AnalyticsView 
             data={salesData} 
@@ -658,6 +733,7 @@ function App() {
             onAddDataClick={() => setIsModalOpen(true)}
             onManageProducts={() => setIsProductModalOpen(true)}
             onDeleteProduct={handleDeleteProduct}
+            onDeleteSalesRecord={handleDeleteSalesData}
             isDarkMode={isDarkMode}
             dateRange={dateRange}
             setDateRange={setDateRange}
@@ -691,6 +767,10 @@ function App() {
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            workLogs={workLogs}
+            onUpdateWorkLog={handleUpdateWorkLog}
+            pricingItems={pricingItems}
+            salesData={salesData}
           />
         )}
       </main>

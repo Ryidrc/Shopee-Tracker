@@ -51,6 +51,7 @@ const createItemsForShops = (
       ongkir: ongkir,
       total: total,
       voucher: 0,
+      voucherExpiry: '', // Initialized as empty
       image: ''
     };
   });

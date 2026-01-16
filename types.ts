@@ -41,6 +41,7 @@ export interface Task {
   id: string;
   text: string;
   frequency: 'daily' | 'weekly';
+  reminderTime?: string; // HH:mm format
 }
 
 export interface TaskCompletion {
@@ -48,6 +49,17 @@ export interface TaskCompletion {
   shopId: ShopID;
   taskId: string;
   completed: boolean;
+}
+
+// New Interface for Numeric Productivity Tracking
+export interface WorkLog {
+  date: string;
+  shopId: ShopID;
+  flashSalesCreated: number;
+  productsRenamed: number;
+  vouchersUpdated: number;
+  reviewsAudited: number;
+  competitorsChecked: number;
 }
 
 export interface PricingItem {
@@ -58,11 +70,13 @@ export interface PricingItem {
   image: string;
   brand: string;
   stock: number;
+  rating?: number; // New: 0-5 Star Rating
   price: number; // Normal Price
   
   priceNet: number; // HPP / Bottom Price
   biaya1250: number; // Fixed cost
   voucher: number; // Fixed Rp
+  voucherExpiry?: string; // YYYY-MM-DD
   discount: number;
   hargaJual: number; // Selling Price
 
@@ -94,13 +108,12 @@ export const SHOPS: { id: ShopID; name: string; color: string }[] = [
 ];
 
 export const INITIAL_TASKS: Task[] = [
-  { id: 't1', text: 'Check Chat Response Rate', frequency: 'daily' },
-  { id: 't2', text: 'Review Ad Budget & Spend', frequency: 'daily' },
-  { id: 't3', text: 'Process Pending Orders', frequency: 'daily' },
-  { id: 't4', text: 'Upload 1 Video (Remix for all 3 Shops)', frequency: 'daily' },
-  { id: 't5', text: 'Competitor Price Check', frequency: 'weekly' },
+  { id: 't1', text: 'Check Chat Response Rate', frequency: 'daily', reminderTime: '08:00' },
+  { id: 't2', text: 'Process Pending Orders', frequency: 'daily', reminderTime: '09:00' },
+  { id: 't4', text: 'Upload 1 Video (Remix for all 3 Shops)', frequency: 'daily', reminderTime: '13:00' },
+  { id: 't8', text: 'Send Chat Broadcast (Use AI Helper)', frequency: 'daily', reminderTime: '16:00' },
+  { id: 't5', text: 'Competitor Price Check (Top 20 Only)', frequency: 'weekly' },
   { id: 't6', text: 'Decorate Shop Banner', frequency: 'weekly' },
-  { id: 't7', text: 'Analyze Keyword Performance', frequency: 'weekly' },
 ];
 
 export const CAMPAIGN_TASKS: Task[] = [
@@ -108,6 +121,5 @@ export const CAMPAIGN_TASKS: Task[] = [
   { id: 'c2', text: '⚡ Verify Flash Sale Slots Active', frequency: 'daily' },
   { id: 'c3', text: '⚡ Check Voucher Budget & Claims', frequency: 'daily' },
   { id: 'c4', text: '⚡ Monitor Top 10 SKU Stock', frequency: 'daily' },
-  { id: 'c5', text: '⚡ Reply Chats Instantly (<15m)', frequency: 'daily' },
   { id: 'c6', text: '⚡ Upload 3 Videos (Teasers/Countdown)', frequency: 'daily' },
 ];

@@ -1,59 +1,85 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { SalesRecord, SHOPS } from '../types';
 import { formatCurrency, formatPercent, formatNumber } from '../utils';
 
-export const getSalesCoachInsight = async (records: SalesRecord[]) => {
+interface CoachContext {
+  startDate: string;
+  endDate: string;
+  shopNames: string[];
+}
+
+export const getSalesCoachInsight = async (records: SalesRecord[], context: CoachContext) => {
   if (!process.env.API_KEY) {
     return "API Key is missing. Please check your environment configuration.";
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // OPTIMIZATION: Strictly limit to recent data regardless of input size
-  // Sort by date desc and take max 21 entries (approx 1 week for 3 shops)
-  // This ensures the AI request never becomes "heavy" or exceeds token limits.
-  const recentRecords = [...records]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 21);
-    
-  if (recentRecords.length === 0) {
-      return "Not enough data to generate insights. Please log daily reports first.";
+  // 1. Contextual Data Preparation
+  // If data is small (< 50 rows), send raw data. 
+  // If large, send weekly aggregates to keep token usage efficient and insights trend-focused.
+  let dataSummary = '';
+  
+  // Sort by date ascending for the AI to read chronological trends
+  const sortedRecords = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  if (sortedRecords.length === 0) {
+      return "No data found for the selected range. Please add daily sales reports.";
   }
 
-  // Pre-calculate aggregate stats to help the AI (Reduces hallucination)
-  const totalSales = recentRecords.reduce((acc, r) => acc + r.penjualan, 0);
-  const totalOrders = recentRecords.reduce((acc, r) => acc + r.pesanan, 0);
-  const avgConv = recentRecords.length > 0 
-    ? recentRecords.reduce((acc, r) => acc + r.konversi, 0) / recentRecords.length 
+  // Calculate High Level Stats
+  const totalSales = sortedRecords.reduce((acc, r) => acc + r.penjualan, 0);
+  const totalOrders = sortedRecords.reduce((acc, r) => acc + r.pesanan, 0);
+  const totalVisitors = sortedRecords.reduce((acc, r) => acc + r.pengunjung, 0);
+  const avgConv = sortedRecords.length > 0 
+    ? sortedRecords.reduce((acc, r) => acc + r.konversi, 0) / sortedRecords.length 
     : 0;
 
-  // Format the granular data for the prompt
-  const dataSummary = recentRecords.map(r => {
-    const shopName = SHOPS.find(s => s.id === r.shopId)?.name || r.shopId;
-    return `${r.date} | ${shopName}: Sales=${formatCurrency(r.penjualan)}, Orders=${r.pesanan}, Conv=${formatPercent(r.konversi)}`;
-  }).join('\n');
+  if (sortedRecords.length > 50) {
+      // Aggregate mode for long date ranges
+      dataSummary = `Dataset too large for row-by-row. Aggregated Stats:\n` +
+                    `- Total Records: ${sortedRecords.length}\n` +
+                    `- Date Range: ${context.startDate} to ${context.endDate}\n` +
+                    `- Shops: ${context.shopNames.join(', ')}`;
+  } else {
+      // Granular mode
+      dataSummary = sortedRecords.map(r => {
+        const shopName = SHOPS.find(s => s.id === r.shopId)?.name || r.shopId;
+        return `[${r.date}] ${shopName}: Sales=${formatCurrency(r.penjualan)}, Orders=${r.pesanan}, Visits=${formatNumber(r.pengunjung)}, Conv=${formatPercent(r.konversi)}`;
+      }).join('\n');
+  }
 
   const prompt = `
-    You are an expert Digital Marketing Sales Coach for Shopee. 
+    You are an elite Digital Marketing Sales Coach for Shopee Indonesia.
     
-    **DATA CONTEXT (Last 7 Days)**
-    - Total Sales: ${formatCurrency(totalSales)}
-    - Total Orders: ${formatNumber(totalOrders)}
-    - Avg Conversion: ${formatPercent(avgConv)}
+    **ANALYSIS CONTEXT:**
+    - **Period:** ${context.startDate} to ${context.endDate}
+    - **Shops Analyzed:** ${context.shopNames.join(', ')}
+    - **Total Sales:** ${formatCurrency(totalSales)}
+    - **Total Orders:** ${formatNumber(totalOrders)}
+    - **Traffic (Visitors):** ${formatNumber(totalVisitors)}
+    - **Avg Conversion:** ${formatPercent(avgConv)}
     
-    **DETAILED LOGS:**
+    **RAW DATA LOGS:**
     ${dataSummary}
     
-    **TASK:**
-    Analyze this data briefly.
-    1. Give me a specific **Morale Boost** highlighting a win or positive trend.
-    2. Give me 1 specific **Actionable Advice** to improve based on the lowest performing metric.
+    **YOUR MISSION:**
+    Provide a high-impact, strategic performance review. Do not just summarize the numbers; tell me *why* they matter and *what* to do.
+
+    **REQUIRED OUTPUT FORMAT (Markdown):**
     
-    **RULES:**
-    - Use **bold** for key metrics and emphasis (e.g. **+5% increase**, **Conversion Rate**).
-    - Keep the tone professional, energetic, and motivating. 
-    - Keep it under 150 words.
+    ## 🏆 Performance Snapshot
+    (Give a 1-sentence executive summary of the performance trend. Is it up? Down? Stable?)
+
+    ## 🚀 Key Wins & Trends
+    (Bullet points. Highlight specific days or shops that performed well. Use **bold** for emphasis.)
+
+    ## 💡 Actionable Growth Strategy
+    (Give 2 specific, hard-hitting recommendations to improve based on the lowest metrics. e.g. If traffic is low, suggest ads/content. If conversion is low, suggest pricing/vouchers.)
+
+    **TONE:**
+    Energetic, professional, and motivating. Keep it concise (under 200 words total).
   `;
 
   try {
@@ -98,5 +124,90 @@ export const generateVideoCaption = async (productName: string, description: str
   } catch (error) {
     console.error("Gemini API Caption Error:", error);
     return "Error generating caption. Please try again.";
+  }
+};
+
+export const generateBroadcastMessage = async (type: string) => {
+  if (!process.env.API_KEY) {
+    return "API Key is missing.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const prompt = `
+    Create a Shopee Chat Broadcast Message (Blast) in Bahasa Indonesia.
+    Target Audience/Goal: ${type}
+    
+    CRITICAL RULES:
+    1. Max 250 characters TOTAL (including spaces & emoji). This is a strict hard limit.
+    2. Tone: Urgent, Exciting, Friendly. Use relevant emojis (🔥, 🎁, ⚡).
+    3. Call to Action (CTA): Must be clear (e.g., "Cek keranjang skrg!", "Checkout yuk!").
+    4. Language: Natural Indonesian marketing slang (Casual but polite).
+    
+    Output ONLY the message text. Do not add quotes or explanations.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Gemini API Broadcast Error:", error);
+    return "Error generating broadcast. Please try again.";
+  }
+};
+
+export const generateCustomerServiceReply = async (customerMessage: string, context: string) => {
+  if (!process.env.API_KEY) {
+    return JSON.stringify({
+      optionA: "API Key is missing.",
+      optionB: "API Key is missing.",
+      optionC: "API Key is missing."
+    });
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const prompt = `
+    You are an expert Customer Service Agent for Shopee Indonesia.
+    
+    **Customer Message:** "${customerMessage}"
+    **Context:** ${context || "None provided"}
+    
+    Generate 3 distinct responses in Bahasa Indonesia:
+    
+    1. **Option A (Empathetic):** Focus on apologizing, showing understanding, and de-escalating anger.
+    2. **Option B (Professional):** Standard SOP, formal, clear, and direct.
+    3. **Option C (Friendly):** Casual, warm, using emojis, suitable for younger customers.
+    
+    Return strictly a JSON object.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            optionA: { type: Type.STRING },
+            optionB: { type: Type.STRING },
+            optionC: { type: Type.STRING },
+          },
+        },
+      },
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Gemini API Chat Error:", error);
+    return JSON.stringify({
+      optionA: "Error generating reply.",
+      optionB: "Error generating reply.",
+      optionC: "Error generating reply."
+    });
   }
 };
