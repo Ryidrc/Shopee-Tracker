@@ -1,5 +1,7 @@
 # Shopee Sales Tracker
 
+![Sales Tracker Dashboard](screenshot.png)
+
 A comprehensive e-commerce management dashboard designed to help Shopee sellers track sales, manage inventory, monitor competitors, and optimize marketing campaigns using AI.
 
 ## 🚀 Features
