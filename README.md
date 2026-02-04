@@ -1,20 +1,71 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Shopee Sales Tracker
 
-# Run and deploy your AI Studio app
+A comprehensive e-commerce management dashboard designed to help Shopee sellers track sales, manage inventory, monitor competitors, and optimize marketing campaigns using AI.
 
-This contains everything you need to run your app locally.
+## 🚀 Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1HzVzHVBRutNytuGOa4jnAuX0wb1yQ_6W
+- **📊 Analytics Dashboard**
+  - Real-time sales overview (Total Sales, Orders, Visitors).
+  - Visualization of sales trends and goal tracking.
+  - "AI Sales Coach" insights.
 
-## Run Locally
+- **🏷️ Pricing & Inventory**
+  - Manage product stock and pricing (HPP vs. Selling Price).
+  - Sorting and filtering by SKU.
+  - Calculate margins and estimated profit.
 
-**Prerequisites:**  Node.js
+- **⚔️ Competitor Intelligence**
+  - Track competitor shops and top-selling products.
+  - Monitor price changes and market trends.
 
+- **🎥 Video Strategy**
+  - Log and track video content performance.
+  - AI-powered caption generator assistant.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **📢 Marketing Campaigns**
+  - **AI Campaign Strategist:** Generate tailored marketing plans (e.g., Payday Sales, Product Launches).
+  - Campaign goal setting and strategy logging.
+
+- **✅ Productivity**
+  - Daily routine checklists.
+  - Productivity timer and work logs.
+  - (Planned) Broadcast message generator.
+
+## 🛠️ Tech Stack
+
+- **Framework:** [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Language:** TypeScript
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Icons:** Lucide React
+- **Charts:** Recharts
+- **AI Integration:** Google GenAI (Gemini)
+
+## 🏃‍♂️ Getting Started
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/Ryidrc/Shopee-Tracker.git
+    cd Shopee-Tracker
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    ```
+
+3.  **Run the development server:**
+
+    ```bash
+    npm run dev
+    ```
+
+4.  **Build for production:**
+    ```bash
+    npm run build
+    ```
+
+## 📝 License
+
+[MIT](LICENSE)
