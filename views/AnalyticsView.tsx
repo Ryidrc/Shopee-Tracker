@@ -3,12 +3,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import { SalesRecord, SHOPS, ShopID, Product, Goal } from '../types';
+import { SalesRecord, SHOPS, ShopID, Product, Goal, PricingItem } from '../types';
 import { formatCurrency, formatNumber, formatPercent } from '../utils';
 import { StatCard } from '../components/StatCard';
 import { EmptyState } from '../components/UIComponents';
 import { GoalSetting } from '../components/GoalSetting';
-import { getSalesCoachInsight } from '../services/geminiService';
+import { getSalesCoachInsight } from '../services/groqService';
 import { exportSalesDataToExcel } from '../services/exportService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -27,6 +27,8 @@ interface AnalyticsViewProps {
   isDarkMode?: boolean;
   dateRange: { start: string; end: string };
   setDateRange: (range: { start: string; end: string }) => void;
+  pricingItems?: PricingItem[];
+  onEditProduct?: (product: Product) => void;
 }
 
 // Improved Markdown Parser
@@ -95,7 +97,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   onDeleteGoal,
   isDarkMode = false,
   dateRange,
-  setDateRange
+  setDateRange,
+  pricingItems = [],
+  onEditProduct
 }) => {
   const [selectedShops, setSelectedShops] = useState<ShopID[]>(['shop1', 'shop2', 'shop3']);
   const [metric, setMetric] = useState<keyof Omit<SalesRecord, 'id' | 'date' | 'shopId'>>('penjualan');
@@ -430,76 +434,160 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       </Card>
 
       {/* AI Coach Banner - Compact */}
-      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+      <Card className="bg-gradient-to-br from-indigo-600 to-violet-700 dark:from-indigo-900 dark:to-violet-950 p-6 text-white shadow-soft-lg relative overflow-hidden border-none text-left">
          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h3 className="font-bold text-lg">AI Sales Coach</h3>
-              <p className="text-indigo-100 text-sm opacity-90">Get instant strategic advice based on your current metrics.</p>
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">✨</span>
+                AI Sales Coach
+              </h3>
+              <p className="text-indigo-100 text-sm opacity-90 mt-1">Get instant strategic advice based on your current metrics.</p>
             </div>
-            <button 
+            <Button 
               onClick={handleAiCoach}
               disabled={loadingAi}
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-full font-bold text-sm transition-all whitespace-nowrap"
+              className="bg-white text-indigo-700 hover:bg-indigo-50 border-none shadow-lg shadow-indigo-900/20"
             >
               {loadingAi ? 'Thinking...' : 'Analyze Performance'}
-            </button>
+            </Button>
          </div>
          {aiInsight && (
-            <div className="mt-6 relative z-10 p-4 bg-black/20 rounded-xl backdrop-blur-sm border border-white/10 text-sm leading-relaxed animate-fade-in">
+            <div className="mt-6 relative z-10 p-5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 text-sm leading-relaxed animate-fade-in shadow-inner">
                 {renderFormattedText(aiInsight)}
             </div>
          )}
-         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-      </div>
+         {/* Decorative shapes */}
+         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
+         <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-indigo-400 opacity-20 rounded-full blur-2xl"></div>
+      </Card>
 
-      {/* Top Products */}
+      {/* Top Products - Enhanced Table */}
       <Card>
         <div className="flex justify-between items-center mb-6">
            <div>
              <h3 className="font-bold text-slate-800 dark:text-slate-200 font-display">Hero Products</h3>
-             <p className="text-xs text-slate-500">Your top focus items.</p>
+             <p className="text-xs text-slate-500">Your top focus items with live pricing data.</p>
            </div>
            <Button variant="ghost" size="sm" onClick={onManageProducts}>
-             Manage
+             Add New
            </Button>
         </div>
         
         {products.length === 0 ? (
           <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-100 dark:border-slate-800">
              <p className="text-slate-400 text-sm">No products added.</p>
+             <button onClick={onManageProducts} className="mt-2 text-shopee-orange font-bold text-sm hover:underline">Add one now</button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {selectedShops.map(shopId => {
-              const shop = SHOPS.find(s => s.id === shopId);
-              const shopProducts = products.filter(p => p.shopId === shopId).sort((a,b) => a.rank - b.rank);
-              
-              return (
-                <div key={shopId} className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
-                  <h4 className="text-xs font-bold uppercase text-slate-400 mb-3 tracking-wider">{shop?.name}</h4>
-                  <div className="space-y-3">
-                    {shopProducts.map((p, index) => (
-                      <div key={p.id} className="flex items-center gap-3 group">
-                          <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
-                             {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <span className="text-[10px] text-slate-300 font-bold">{index+1}</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                             <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{p.name}</div>
-                             <div className="text-[10px] text-slate-400">{formatNumber(p.sales)} sold</div>
-                          </div>
-                           <button 
-                             onClick={() => onDeleteProduct(p.id)} 
-                             className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-opacity"
-                           >
-                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                           </button>
-                      </div>
-                    ))}
-                    {shopProducts.length === 0 && <div className="text-xs text-slate-400 italic">Empty list</div>}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="overflow-x-auto">
+             <table className="w-full text-left border-collapse">
+                <thead>
+                   <tr className="border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 pl-2">Rank</th>
+                      <th className="py-3">Product</th>
+                      <th className="py-3 text-right">Sales / Stock</th>
+                      <th className="py-3 text-right">Price / Profit</th>
+                      <th className="py-3 text-right">Action</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                   {products.sort((a,b) => a.rank - b.rank).map((p) => {
+                      const shop = SHOPS.find(s => s.id === p.shopId);
+                      // Find linked Pricing Item
+                      const pricingItem = p.sku ? pricingItems.find(pi => pi.sku.toLowerCase() === p.sku!.toLowerCase()) : null;
+                      
+                      const stockLevel = pricingItem ? pricingItem.stock : 0;
+                      const isLowStock = stockLevel < 20; // Alert threshold
+
+                      return (
+                        <tr key={p.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                           {/* Rank */}
+                           <td className="py-3 pl-2 w-16">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
+                                 p.rank === 1 ? 'bg-yellow-100 text-yellow-600' :
+                                 p.rank === 2 ? 'bg-slate-200 text-slate-600' :
+                                 p.rank === 3 ? 'bg-orange-100 text-orange-600' :
+                                 'bg-slate-50 text-slate-400 dark:bg-slate-800'
+                              }`}>
+                                 {p.rank}
+                              </div>
+                           </td>
+
+                           {/* Product Info */}
+                           <td className="py-3">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-700">
+                                    {p.image ? (
+                                       <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
+                                    ) : (
+                                       <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                       </div>
+                                    )}
+                                 </div>
+                                 <div className="min-w-0 max-w-[180px] sm:max-w-xs">
+                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{p.name}</div>
+                                    <div className="flex items-center gap-2">
+                                       <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold" style={{backgroundColor: shop?.color}}>{shop?.name}</span>
+                                       {p.sku && <span className="text-[10px] text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{p.sku}</span>}
+                                    </div>
+                                 </div>
+                              </div>
+                           </td>
+
+                           {/* Sales / Stock */}
+                           <td className="py-3 text-right">
+                              <div className="flex flex-col items-end">
+                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatNumber(p.sales)} Sold</span>
+                                 {pricingItem ? (
+                                    <span className={`text-[10px] font-bold px-1.5 rounded-full ${isLowStock ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-green-100 text-green-600'}`}>
+                                       {stockLevel} in Stock
+                                    </span>
+                                 ) : (
+                                    <span className="text-[10px] text-slate-400 italic">No stock data</span>
+                                 )}
+                              </div>
+                           </td>
+
+                           {/* Price / Profit */}
+                           <td className="py-3 text-right">
+                              {pricingItem ? (
+                                 <div className="flex flex-col items-end">
+                                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{formatCurrency(pricingItem.hargaJual)}</span>
+                                    <div className="flex gap-1 items-center">
+                                       <span className="text-[10px] text-slate-400">Net:</span>
+                                       <span className="text-xs font-bold text-emerald-600">{formatCurrency(pricingItem.total)}</span>
+                                    </div>
+                                 </div>
+                              ) : (
+                                 <span className="text-xs text-slate-500">-</span>
+                              )}
+                           </td>
+
+                           {/* Actions */}
+                           <td className="py-3 text-right">
+                              <div className="flex justify-end gap-1">
+                                 <button 
+                                    onClick={() => onEditProduct && onEditProduct(p)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    title="Edit"
+                                 >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                 </button>
+                                 <button 
+                                    onClick={() => onDeleteProduct(p.id)}
+                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Delete"
+                                 >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                 </button>
+                              </div>
+                           </td>
+                        </tr>
+                      );
+                   })}
+                </tbody>
+             </table>
           </div>
         )}
       </Card>

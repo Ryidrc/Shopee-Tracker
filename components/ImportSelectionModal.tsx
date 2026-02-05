@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { SHOPS, ShopID } from '../types';
 
 interface ImportSelectionModalProps {
@@ -14,7 +14,7 @@ interface ImportSelectionModalProps {
 export const ImportSelectionModal: React.FC<ImportSelectionModalProps> = ({ 
   isOpen, onClose, onConfirm, recordCount, dateRange, fileName 
 }) => {
-  const [selectedShop, setSelectedShop] = useState<ShopID>(SHOPS[0].id);
+  const [selectedShop, setSelectedShop] = useState<ShopID>(SHOPS[0]!.id);
 
   if (!isOpen) return null;
 

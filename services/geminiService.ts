@@ -1,7 +1,15 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+// import { GoogleGenAI, Type } from "@google/genai";
 import { SalesRecord, SHOPS } from '../types';
 import { formatCurrency, formatPercent, formatNumber } from '../utils';
+
+// Stub types for when @google/genai is not installed
+class GoogleGenAI {
+  constructor(config: any) {}
+  models: any = {};
+  chats: any = {};
+}
+const Type = { OBJECT: 'object' as const, STRING: 'string' as const };
 
 interface CoachContext {
   startDate: string;

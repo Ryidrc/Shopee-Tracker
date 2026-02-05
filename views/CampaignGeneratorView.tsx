@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createCampaignChat } from '../services/geminiService';
-import { Chat, GenerateContentResponse } from "@google/genai";
+import { createCampaignChat } from '../services/groqService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sparkles, Send, MessageSquare } from 'lucide-react';
@@ -85,7 +84,7 @@ export const CampaignGeneratorView: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [chatSession, setChatSession] = useState<Chat | null>(null);
+  const [chatSession, setChatSession] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,8 +114,13 @@ export const CampaignGeneratorView: React.FC = () => {
     setLoading(true);
 
     try {
-      const result: GenerateContentResponse = await chatSession.sendMessage({ message: text });
-      const aiText = result.text;
+      // Build conversation history for Groq
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role === 'model' ? 'assistant' : 'user',
+        content: msg.text
+      }));
+
+      const aiText = await chatSession.sendMessage(text, conversationHistory);
       
       if (aiText) {
         setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: aiText }]);

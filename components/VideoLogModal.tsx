@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { VideoLog, SHOPS, ShopID, PricingItem } from '../types';
-import { generateVideoCaption } from '../services/geminiService';
+import { generateVideoCaption } from '../services/groqService';
 
 interface VideoLogModalProps {
   isOpen: boolean;

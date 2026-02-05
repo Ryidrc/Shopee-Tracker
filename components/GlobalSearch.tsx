@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SalesRecord, PricingItem, VideoLog, SHOPS } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -72,13 +72,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     // Search pricing items
     pricingItems.forEach(item => {
-      const searchText = `${item.name} ${item.sku || ''} ${item.code || ''}`.toLowerCase();
+      const searchText = `${item.productName} ${item.sku || ''}`.toLowerCase();
       
       if (searchText.includes(q)) {
         searchResults.push({
           type: 'pricing',
           id: item.id,
-          title: item.name,
+          title: item.productName,
           subtitle: `SKU: ${item.sku || 'N/A'} - ${formatCurrency(item.price)}`,
           shopId: item.shopId,
           highlight: 'pricing',
@@ -88,14 +88,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     // Search video logs
     videoLogs.forEach(log => {
-      const searchText = `${log.title || ''} ${log.description || ''} ${log.skuList?.map(s => s.code).join(' ')}`.toLowerCase();
+      const searchText = `${log.concept || ''} ${log.sku || ''} ${log.videoCode || ''}`.toLowerCase();
       
       if (searchText.includes(q)) {
         searchResults.push({
           type: 'video',
           id: log.id,
-          title: log.title || 'Untitled Video',
-          subtitle: `${log.date} - ${log.skuList?.length || 0} products`,
+          title: log.concept || 'Untitled Video',
+          subtitle: `${log.date} - SKU: ${log.sku || 'N/A'}`,
           date: log.date,
           shopId: log.shopId,
           highlight: 'videos',

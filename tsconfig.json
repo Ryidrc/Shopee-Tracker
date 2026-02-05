@@ -24,6 +24,16 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    
+    /* Gradual Type Checking - Start with these */
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    
+    /* Performance */
+    "incremental": true,
+    
+    /* Better Error Messages */
+    "noErrorTruncation": true
   }
 }

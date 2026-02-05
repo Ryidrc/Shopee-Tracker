@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, TaskCompletion, SHOPS, CAMPAIGN_TASKS, WorkLog, PricingItem, SalesRecord } from '../types';
-import { generateBroadcastMessage } from '../services/geminiService';
+import { generateBroadcastMessage } from '../services/groqService';
 import { ProgressBar, Badge } from '../components/UIComponents';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -32,7 +32,7 @@ export const TaskTrackerView: React.FC<TaskTrackerViewProps> = ({
   workLogs = [], onUpdateWorkLog, pricingItems = [], salesData = []
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0].id);
+  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0]!.id);
   
   // Edit Mode State
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);

@@ -40,7 +40,7 @@ A comprehensive e-commerce management dashboard designed to help Shopee sellers 
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 - **Icons:** Lucide React
 - **Charts:** Recharts
-- **AI Integration:** Google GenAI (Gemini)
+- **AI Integration:** Groq (Llama 3.3 70B)
 
 ## 🏃‍♂️ Getting Started
 
@@ -57,13 +57,24 @@ A comprehensive e-commerce management dashboard designed to help Shopee sellers 
     npm install
     ```
 
-3.  **Run the development server:**
+3.  **Set up your API key:**
+    - Copy `.env.example` to `.env.local`:
+      ```bash
+      cp .env.example .env.local
+      ```
+    - Get your Groq API key from [console.groq.com](https://console.groq.com)
+    - Edit `.env.local` and add your API key:
+      ```
+      GROQ_API_KEY=your_actual_api_key_here
+      ```
+
+4.  **Run the development server:**
 
     ```bash
     npm run dev
     ```
 
-4.  **Build for production:**
+5.  **Build for production:**
     ```bash
     npm run build
     ```

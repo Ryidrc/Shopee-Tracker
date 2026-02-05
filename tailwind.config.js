@@ -11,10 +11,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Outfit', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', 'Outfit', 'system-ui', 'sans-serif'],
       },
       colors: {
+        primary: '#EE4D2D',
+        'primary-hover': '#D73D1D',
         shopee: {
           orange: '#EE4D2D',
           dark: '#262626',
@@ -23,6 +25,12 @@ export default {
         slate: {
           850: '#151F2E', // Custom deeper slate for dark mode cards
         }
+      },
+      boxShadow: {
+        'soft-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+        'soft-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)',
+        'soft-xl': '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',

@@ -38,7 +38,7 @@ const parseSku = (sku: string) => {
 };
 
 export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, pricingItems, onAddLog, onEditLog, onDeleteLog }) => {
-  const [activeShopId, setActiveShopId] = useState<ShopID>(SHOPS[0].id);
+  const [activeShopId, setActiveShopId] = useState<ShopID>(SHOPS[0]!.id);
   const [search, setSearch] = useState('');
 
   const tableData = useMemo(() => {
@@ -75,14 +75,14 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
       
       {/* Strategy Header */}
       {/* Strategy Header */}
-      <Card className="bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800 flex flex-row items-center gap-4 p-4">
-         <div className="p-2 bg-red-100 dark:bg-red-800 rounded-full shrink-0">
-            <Video size={20} className="text-red-600 dark:text-red-200" />
+      <Card className="bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 flex flex-row items-center gap-4 p-5 shadow-soft-sm">
+         <div className="p-3 bg-white dark:bg-white/10 rounded-full shrink-0 shadow-sm text-red-600 dark:text-red-200">
+            <Video size={20} />
          </div>
          <div>
-            <h3 className="text-sm font-bold text-red-800 dark:text-red-200 uppercase mb-1">Strategy Rule</h3>
-            <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-               No Viewer over Last 2 Months, Reupload (Trim 1 Second, Add Filter/+1 Brightness, New Song, New Hook)
+            <h3 className="text-xs font-bold text-red-500 dark:text-red-300 uppercase mb-1 tracking-wider">Strategy Rule</h3>
+            <p className="text-sm text-red-900 dark:text-red-100 font-medium leading-relaxed">
+               No Viewer over Last 2 Months? <span className="font-bold border-b border-red-300">Reupload</span>: Trim 1s, Add Filter + Brightness, New Song, New Hook.
             </p>
          </div>
       </Card>
@@ -91,16 +91,16 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
       <Card className="p-0 overflow-hidden flex flex-col">
          
          {/* Toolbar */}
-         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col lg:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-800">
+         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900">
             <div className="flex flex-col sm:flex-row gap-4 items-center w-full lg:w-auto">
-                <div className="flex bg-slate-200 dark:bg-slate-700 rounded-full p-1">
+                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-full p-1 border border-slate-200 dark:border-slate-700">
                     {SHOPS.map(shop => (
                         <button
                             key={shop.id}
                             onClick={() => setActiveShopId(shop.id)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
                                 activeShopId === shop.id 
-                                ? 'bg-white dark:bg-slate-600 shadow-sm text-shopee-orange' 
+                                ? 'bg-white dark:bg-slate-600 shadow-sm text-shopee-orange scale-105' 
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                             }`}
                         >
@@ -109,21 +109,18 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
                     ))}
                 </div>
                 
-                <div className="hidden md:flex gap-4 text-xs font-mono text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-slate-600 pl-4 items-center">
-                    <div>Last Updated: <span className="font-bold text-slate-700 dark:text-slate-200">{lastUpdated}</span></div>
-                    <div>|</div>
-                    <div className="flex gap-2">
-                      Link: 
-                      <a 
-                        href="https://drive.google.com/drive/folders/1oMzboTbN7VEZYaugG98oAvaXsaX-j4sf" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                      >
-                        VIDEO SKU (HAPPY)
-                        <ExternalLink size={12} />
-                      </a>
-                    </div>
+                <div className="hidden md:flex gap-4 text-xs font-mono text-slate-400 dark:text-slate-500 border-l border-slate-200 dark:border-slate-700 pl-4 items-center">
+                    <div>Updated: <span className="font-bold text-slate-600 dark:text-slate-300">{lastUpdated}</span></div>
+                    
+                    <a 
+                      href="https://drive.google.com/drive/folders/1oMzboTbN7VEZYaugG98oAvaXsaX-j4sf" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-colors font-bold"
+                    >
+                      VIDEO SKU (HAPPY)
+                      <ExternalLink size={10} />
+                    </a>
                 </div>
             </div>
 
@@ -132,15 +129,15 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input 
                         type="text" 
-                        placeholder="Search SKU or Name..." 
+                        placeholder="Search SKU..." 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full border-none bg-white dark:bg-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-slate-600 focus:ring-2 focus:ring-shopee-orange outline-none"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-shopee-orange/20 transition-all placeholder:text-slate-400"
                     />
                   </div>
                   <Button 
                     onClick={() => onAddLog(activeShopId)}
-                    className="gap-2 shadow-sm whitespace-nowrap"
+                    className="gap-2 shadow-soft-sm whitespace-nowrap"
                   >
                     <Plus size={16} />
                     Log Video

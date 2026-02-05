@@ -1,6 +1,6 @@
 
 /// <reference lib="dom" />
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SalesRecord, TaskCompletion, Product, SHOPS, INITIAL_TASKS, Task, PricingItem, CompetitorItem, VideoLog, ShopID, WorkLog, Goal } from './types';
 import { AnalyticsView } from './views/AnalyticsView';
 import { TaskTrackerView } from './views/TaskTrackerView';
@@ -20,116 +20,9 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { SummaryReport } from './components/SummaryReport';
 import { INITIAL_PRICING, INITIAL_VIDEO_LOGS } from './data';
 import { MainLayout } from './components/Layout/MainLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import * as XLSX from 'xlsx';
-
-// --- CUSTOM HOOK FOR PERSISTENT STATE (IMPROVED) ---
-// Prevents data loss by:
-// 1. Tracking initialization state
-// 2. Never saving empty data if backup exists
-// 3. Debouncing writes to prevent performance issues
-// 4. Creating automatic backups
-function usePersistentState<T>(
-  key: string, 
-  defaultValue: T, 
-  sanitizer?: (val: any) => T
-): [T, React.Dispatch<React.SetStateAction<T>>, boolean] {
-  const [isLoading, setIsLoading] = useState(true);
-  const isInitialized = useRef(false);
-  const previousValue = useRef<T | null>(null);
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  const [state, setState] = useState<T>(() => {
-    try {
-      // Try main key first
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const result = sanitizer ? sanitizer(parsed) : parsed;
-        previousValue.current = result;
-        return result;
-      }
-      
-      // Try backup if main key fails or is missing
-      const backup = localStorage.getItem(`${key}_backup`);
-      if (backup) {
-        console.warn(`🔄 Recovered ${key} from backup`);
-        const parsedBackup = JSON.parse(backup);
-        const result = sanitizer ? sanitizer(parsedBackup) : parsedBackup;
-        previousValue.current = result;
-        // Restore main key from backup
-        localStorage.setItem(key, backup);
-        return result;
-      }
-
-      return defaultValue;
-    } catch (e) {
-      console.error(`Error loading state for ${key}`, e);
-      return defaultValue;
-    }
-  });
-
-  // Mark as initialized after first render
-  useEffect(() => {
-    isInitialized.current = true;
-    setIsLoading(false);
-  }, []);
-
-  // Debounced save effect
-  useEffect(() => {
-    // Don't save during initial render
-    if (!isInitialized.current) {
-      return;
-    }
-    
-    // Clear any pending save
-    if (saveTimeout.current) {
-      clearTimeout(saveTimeout.current);
-    }
-    
-    // Debounce the save operation (500ms)
-    saveTimeout.current = setTimeout(() => {
-      try {
-        const isArray = Array.isArray(state);
-        const isEmpty = isArray ? (state as any[]).length === 0 : 
-                        typeof state === 'object' ? Object.keys(state as any).length === 0 : false;
-        const hadData = previousValue.current !== null && (
-          Array.isArray(previousValue.current) ? (previousValue.current as any[]).length > 0 :
-          typeof previousValue.current === 'object' ? Object.keys(previousValue.current as any).length > 0 : true
-        );
-        
-        // PROTECTION: Don't save empty data if we previously had data
-        // This prevents accidental data loss during HMR or bugs
-        if (isEmpty && hadData) {
-          console.warn(`⚠️ Protected ${key}: Prevented saving empty data (had ${
-            Array.isArray(previousValue.current) ? (previousValue.current as any[]).length : 'some'
-          } items)`);
-          return;
-        }
-        
-        // Save to main key
-        const jsonData = JSON.stringify(state);
-        localStorage.setItem(key, jsonData);
-        
-        // Save to backup if non-empty
-        if (!isEmpty) {
-          localStorage.setItem(`${key}_backup`, jsonData);
-          previousValue.current = state;
-        }
-        
-      } catch (e) {
-        console.error(`Error saving state for ${key}`, e);
-      }
-    }, 500);
-    
-    return () => {
-      if (saveTimeout.current) {
-        clearTimeout(saveTimeout.current);
-      }
-    };
-  }, [key, state]);
-
-  return [state, setState, isLoading];
-}
 
 function App() {
   const [view, setView] = useState<'analytics' | 'tasks' | 'pricing' | 'competitors' | 'videos' | 'campaigns'>('analytics');
@@ -158,21 +51,22 @@ function App() {
   };
 
   // -- STATE INITIALIZATION WITH AUTO-PERSISTENCE --
-  const [salesData, setSalesData] = usePersistentState<SalesRecord[]>('shopee_sales_data', []);
-  const [tasks, setTasks] = usePersistentState<Task[]>('shopee_tasks_def', INITIAL_TASKS);
-  const [taskCompletions, setTaskCompletions] = usePersistentState<TaskCompletion[]>('shopee_task_completions', []);
-  const [goals, setGoals] = usePersistentState<Goal[]>('shopee_goals', []);
-  const [workLogs, setWorkLogs] = usePersistentState<WorkLog[]>('shopee_work_logs', []);
+  const [salesData, setSalesData] = useLocalStorage<SalesRecord[]>('shopee_sales_data', []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>('shopee_tasks_def', INITIAL_TASKS);
+  const [taskCompletions, setTaskCompletions] = useLocalStorage<TaskCompletion[]>('shopee_task_completions', []);
+  const [goals, setGoals] = useLocalStorage<Goal[]>('shopee_goals', []);
+  const [workLogs, setWorkLogs] = useLocalStorage<WorkLog[]>('shopee_work_logs', []);
   
   // Products with sanitizer
-  const [products, setProducts] = usePersistentState<Product[]>('shopee_hero_products', [], sanitizeProducts);
+  const [products, setProducts] = useLocalStorage<Product[]>('shopee_hero_products', [], sanitizeProducts);
   
-  const [pricingItems, setPricingItems] = usePersistentState<PricingItem[]>('shopee_pricing_data', INITIAL_PRICING);
-  const [competitors, setCompetitors] = usePersistentState<CompetitorItem[]>('shopee_competitors', []);
-  const [videoLogs, setVideoLogs] = usePersistentState<VideoLog[]>('shopee_video_logs', INITIAL_VIDEO_LOGS);
+  const [pricingItems, setPricingItems] = useLocalStorage<PricingItem[]>('shopee_pricing_data', INITIAL_PRICING);
+  const [competitors, setCompetitors] = useLocalStorage<CompetitorItem[]>('shopee_competitors', []);
+  const [videoLogs, setVideoLogs] = useLocalStorage<VideoLog[]>('shopee_video_logs', INITIAL_VIDEO_LOGS);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [videoModalDefaultShop, setVideoModalDefaultShop] = useState<ShopID>('shop1');
   const [editingVideoLog, setEditingVideoLog] = useState<VideoLog | null>(null);
@@ -419,19 +313,27 @@ function App() {
     setGoals(prev => prev.filter(g => g.id !== id));
   };
 
-  const handleAddProduct = (newProduct: Product) => {
-    setProducts(prev => [...prev, newProduct]);
+  const handleSaveProduct = (product: Product) => {
+    setProducts(prev => {
+        const index = prev.findIndex(p => p.id === product.id);
+        if (index >= 0) {
+            const updated = [...prev];
+            updated[index] = product;
+            return updated;
+        }
+        return [...prev, product];
+    });
 
-    if (newProduct.sku) {
-      const sku = newProduct.sku.trim();
+    if (product.sku) {
+      const sku = product.sku.trim();
       setPricingItems(prevItems => {
         const skuExists = prevItems.some(i => i.sku.toLowerCase() === sku.toLowerCase());
         
         if (skuExists) {
-           if (newProduct.image) {
+           if (product.image) {
              return prevItems.map(item => {
                 if (item.sku.toLowerCase() === sku.toLowerCase()) {
-                   return { ...item, image: newProduct.image };
+                   return { ...item, image: product.image };
                 }
                 return item;
              });
@@ -443,8 +345,8 @@ function App() {
               id: `item-${timestamp}-${shop.id}`,
               sku: sku,
               shopId: shop.id,
-              productName: newProduct.name,
-              image: newProduct.image || '',
+              productName: product.name,
+              image: product.image || '',
               brand: '', 
               stock: 0,
               rating: 5.0, 
@@ -465,6 +367,11 @@ function App() {
         }
       });
     }
+  };
+
+  const handleEditProduct = (product: Product) => {
+      setEditingProduct(product);
+      setIsProductModalOpen(true);
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -798,14 +705,18 @@ function App() {
           products={products}
           goals={goals}
           onAddDataClick={() => setIsModalOpen(true)}
-          onManageProducts={() => setIsProductModalOpen(true)}
+          onManageProducts={() => {
+              setEditingProduct(null);
+              setIsProductModalOpen(true);
+          }}
           onDeleteProduct={handleDeleteProduct}
           onDeleteSalesRecord={handleDeleteSalesData}
           onAddGoal={handleAddGoal}
           onDeleteGoal={handleDeleteGoal}
           dateRange={dateRange}
           setDateRange={setDateRange}
-          onImportClick={handleImportExcelClick}
+          pricingItems={pricingItems}
+          onEditProduct={handleEditProduct}
         />
       )}
 
@@ -943,8 +854,9 @@ function App() {
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
-        onSubmit={handleAddProduct}
+        onSubmit={handleSaveProduct}
         pricingItems={pricingItems}
+        initialData={editingProduct}
       />
 
       <VideoLogModal

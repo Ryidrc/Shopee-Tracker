@@ -7,7 +7,7 @@ import {
   generateBroadcastMessage,
   generateCustomerServiceReply,
   createCampaignChat
-} from '../services/geminiService';
+} from '../services/groqService';
 import { formatCurrency, formatNumber } from '../utils';
 
 interface Message {
@@ -215,7 +215,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
             </div>
             <div>
               <h2 className="font-bold text-slate-800 dark:text-white">AI Assistant</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Powered by Gemini</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Powered by Groq</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">

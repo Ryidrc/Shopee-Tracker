@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generateCustomerServiceReply } from '../services/geminiService';
+import { generateCustomerServiceReply } from '../services/groqService';
 
 export const ChatAssistantView: React.FC = () => {
   const [customerMessage, setCustomerMessage] = useState('');

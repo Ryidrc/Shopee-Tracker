@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   "w-full flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
                   isCollapsed ? "justify-center gap-0" : "gap-3",
                   isActive 
-                    ? "bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900" 
+                    ? "bg-orange-50 text-shopee-orange shadow-soft-sm dark:bg-orange-500/10 dark:text-orange-400" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
                   isCollapsed && "justify-center"
                 )}
@@ -116,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   size={20} 
                   className={clsx(
                     "transition-colors shrink-0",
-                    isActive ? "text-white dark:text-slate-900" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
+                    isActive ? "text-shopee-orange dark:text-orange-400" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
                   )} 
                 />
                 <span className={clsx(

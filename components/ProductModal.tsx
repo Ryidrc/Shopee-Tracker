@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, SHOPS, ShopID, PricingItem } from '../types';
 
 interface ProductModalProps {
@@ -6,9 +6,10 @@ interface ProductModalProps {
   onClose: () => void;
   onSubmit: (product: Product) => void;
   pricingItems?: PricingItem[];
+  initialData?: Product | null;
 }
 
-export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onSubmit, pricingItems = [] }) => {
+export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onSubmit, pricingItems = [], initialData }) => {
   const [sku, setSku] = useState('');
   const [skuError, setSkuError] = useState('');
   
@@ -19,6 +20,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
     sales: 0,
     image: ''
   });
+
+  useEffect(() => {
+    if (isOpen) {
+        if (initialData) {
+            setFormData({
+                name: initialData.name,
+                shopId: initialData.shopId,
+                rank: initialData.rank,
+                sales: initialData.sales,
+                image: initialData.image
+            });
+            setSku(initialData.sku || '');
+        } else {
+            // Reset for Add Mode
+            setFormData({ name: '', shopId: 'shop1', rank: 1, sales: 0, image: '' });
+            setSku('');
+        }
+        setSkuError('');
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -42,15 +63,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      id: `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: initialData ? initialData.id : `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       sku: sku, // Pass the SKU so we can sync with pricing DB
       ...formData
     });
     // Reset
     onClose();
-    setFormData({ name: '', shopId: 'shop1', rank: 1, sales: 0, image: '' });
-    setSku('');
-    setSkuError('');
   };
 
   const inputClass = "mt-1 block w-full rounded-md border-slate-300 dark:border-slate-600 shadow-sm focus:border-shopee-orange focus:ring focus:ring-shopee-orange focus:ring-opacity-50 border p-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 transition-colors";
@@ -59,7 +77,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6 transition-colors animate-fade-in">
-        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">Add Hero Product</h2>
+        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">
+            {initialData ? 'Edit Hero Product' : 'Add Hero Product'}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           
           {/* SKU Lookup Section */}
@@ -150,7 +170,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-shopee-orange rounded-lg hover:bg-red-600 shadow-md">
-              Save Product
+              {initialData ? 'Save Changes' : 'Add Product'}
             </button>
           </div>
 

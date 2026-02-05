@@ -19,7 +19,7 @@ type SortConfig = {
 } | null;
 
 export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, onRequestDelete }) => {
-  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0].id);
+  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0]!.id);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const tableBottomRef = useRef<HTMLTableRowElement>(null);

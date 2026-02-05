@@ -11,7 +11,7 @@ interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ title, value, trend, trendUp, icon }) => {
   return (
-    <Card className="flex flex-col justify-between h-full hover:shadow-lg transition-all duration-300 group">
+    <Card className="flex flex-col justify-between h-full transition-all duration-300 group">
       <div className="flex justify-between items-start">
         <div>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1 group-hover:text-shopee-orange transition-colors">{title}</p>
