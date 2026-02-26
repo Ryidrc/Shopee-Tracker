@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Square
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -25,6 +26,7 @@ interface SidebarProps {
   toggleTheme: () => void;
   isCollapsed: boolean;
   toggleCollapse: () => void;
+  onOpenWindow?: (viewId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -35,7 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isDarkMode,
   toggleTheme,
   isCollapsed,
-  toggleCollapse
+  toggleCollapse,
+  onOpenWindow
 }) => {
   const navItems = [
     { id: 'analytics', label: 'Dashboard', icon: LayoutDashboard },
@@ -120,11 +123,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )} 
                 />
                 <span className={clsx(
-                  "whitespace-nowrap transition-all duration-300 overflow-hidden",
+                  "whitespace-nowrap transition-all duration-300 overflow-hidden flex-1",
                   isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
                 )}>
                   {item.label}
                 </span>
+
+                {/* Pop-out Window Button */}
+                {!isCollapsed && onOpenWindow && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenWindow(item.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition-opacity"
+                    title="Open in window"
+                  >
+                    <Square size={14} className="text-slate-400" />
+                  </button>
+                )}
 
                 {/* Tooltip for collapsed state */}
                 {isCollapsed && (

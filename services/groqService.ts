@@ -169,16 +169,21 @@ export const generateVideoCaption = async (productName: string, description: str
   }
 };
 
-export const generateBroadcastMessage = async (type: string, promoDetails?: {
-  hasVoucher?: boolean;
-  voucherCode?: string;
-  discount?: string;
-  hasFreeShipping?: boolean;
-  shippingMinPurchase?: string;
-  hasGift?: boolean;
-  giftDescription?: string;
-  validUntil?: string;
-}) => {
+export const generateBroadcastMessage = async (
+  type: string,
+  shopName: string,
+  productName?: string,
+  promoDetails?: {
+    hasVoucher?: boolean;
+    voucherCode?: string;
+    discount?: string;
+    hasFreeShipping?: boolean;
+    shippingMinPurchase?: string;
+    hasGift?: boolean;
+    giftDescription?: string;
+    validUntil?: string;
+  }
+) => {
   const apiKey = localStorage.getItem('groq_api_key') || process.env.API_KEY;
 
   if (!apiKey) {
@@ -205,71 +210,74 @@ export const generateBroadcastMessage = async (type: string, promoDetails?: {
     }
   }
 
-  const prompt = `
-    Create a HIGH-CONVERSION Shopee Chat Broadcast (Blast) for BEAUTY/SKINCARE products in Bahasa Indonesia.
-    
-    **Campaign Type/Goal:** ${type}
-    
-    ${verifiedPromo ? `**VERIFIED ACTIVE PROMOTIONS (ONLY use these, DO NOT invent others):**\n${verifiedPromo}` : '**NO ACTIVE PROMOTIONS** - Focus on product benefits and general shop visit CTA only.'}
-    
-    **CRITICAL REQUIREMENTS:**
-    1. **CHARACTER LIMIT: 240-250 characters TOTAL** (including spaces, emojis). YOU MUST MAXIMIZE THIS LIMIT.
-    2. **Target:** Existing Shopee customers who need a nudge to checkout.
-    3. **Persona:** You're their beauty bestie with insider deals.
-    
-    **⚠️ ABSOLUTE RULES - DO NOT VIOLATE:**
-    - **ONLY mention promotions explicitly listed above in "VERIFIED ACTIVE PROMOTIONS"**
-    - **NEVER invent voucher codes** (e.g., NO random "BEAUTY15", "GLOW20")
-    - **NEVER mention discounts/percentages** unless provided in verified promos
-    - **NEVER mention free items/gifts** unless listed in verified promos
-    - **NEVER mention "Flash Sale" timing** unless provided
-    - If NO verified promos: Focus on product benefits, new arrivals, restocks, reviews
-    
-    **FORMULA (Fit ALL of this in 240-250 chars):**
-    - **PERSONALIZED HOOK** (25-35 chars): Make it feel exclusive (e.g., "Halo Kak! Kabar baik nih", "Bestie, ada update!")
-    - **VALUE/BENEFIT** (60-90 chars): 
-      * IF promos exist: State them EXACTLY as provided
-      * IF NO promos: Highlight product benefits, new stock, best sellers, reviews (e.g., "Serum favorit kamu RESTOK! Review 4.9 bintang, banyak repeat order!")
-    - **URGENCY** (30-40 chars): 
-      * IF deadline exists: Use the verified date
-      * IF NO deadline: Use social proof urgency (e.g., "Stok terbatas!", "Best seller terus!", "Sering sold out!")
-    - **CTA** (25-35 chars): Strong action (e.g., "Cek toko sekarang!", "Klik link buat liat koleksi!", "Yuk mampir ke toko!")
-    - **EMOJIS** (5-10 chars): Max 4 emojis (✨💖🛒🔥⚡)
-    
-    **LANGUAGE RULES:**
-    - Indonesian beauty slang: "Auto checkout", "Racun banget", "Wajib punya"
-    - Avoid: "Dapatkan", "Silakan"
-    - Use "Kak/Bestie" to personalize
-    
-    **SAFE URGENCY TACTICS (when NO verified promos):**
-    - "Stok terbatas!"
-    - "Best seller terus!"
-    - "Sering sold out!"
-    - "Review 4.8+ bintang!"
-    - "Banyak repeat order!"
-    - "Produk baru!"
-    - "RESTOK sekarang!"
-    
-    **EXAMPLE WITH VERIFIED PROMO (248 chars):**
-    "Halo Kak! 🎉 Khusus hari ini voucher BEAUTY20 aktif, diskon 20% min belanja 100K! Semua serum best seller termasuk ya. Valid sampai jam 23:59 malam ini aja. Buruan cek keranjang sebelum voucher habis! 🔥✨ Klik: [link]"
-    
-    **EXAMPLE WITHOUT PROMO (247 chars):**
-    "Bestie! Ada kabar gembira 💖 Serum vitamin C favorit kamu RESTOK lagi! Review 4.9 bintang, banyak yang repeat order terus. Stok terbatas banget, sering sold out. Yuk mampir ke toko sekarang sebelum kehabisan! ✨🛒 Klik: [link]"
-    
-    **OUTPUT INSTRUCTIONS:**
-    - Return ONLY the message text (no quotes, no explanations)
-    - Aim for 245-250 characters to MAXIMIZE space
-    - DO NOT hallucinate promotions
-    - Include placeholder "[link]" for Shopee link
-    - If no verified promos, focus on PRODUCT VALUE and SOCIAL PROOF
+  const productContext = productName?.trim()
+    ? `**Product to Promote:** ${productName} (use this EXACT product name in the message)`
+    : `**Product:** (no specific product provided — do NOT invent product names)`;
+
+    const prompt = `
+# Role: Shopee Seller Centre Broadcast Generator
+
+You are an expert e-commerce copywriter specializing in Shopee Seller Centre Broadcasts. Your task is to generate highly engaging, urgent, and persuasive broadcast messages based on the user's product input.
+
+**Context:**
+- Shop Name: ${shopName}
+- Broadcast Type: ${type}
+${productContext}
+${verifiedPromo ? `**Verified Active Promotions (ONLY use these):**\n${verifiedPromo}` : ''}
+
+## 📌 Strict Rules & Constraints
+
+- **Character Limit:** Maximum 250 characters per broadcast (including spaces and emojis). Count carefully.
+- **Zero Hallucination:** Do NOT invent features, freebies, bundles, or discounts that are not explicitly provided in the context above.
+- **Dynamic Variable Insertion:** Seamlessly integrate the provided **Product Name** and **Shop Name** into the broadcast, replacing any generic placeholders from the examples. You must naturally mention the shop name "${shopName}".
+- **Call to Action (CTA):** Always end with a strong push to click/checkout, often using a downward pointing emoji (👇).
+- **UNIQUE AND CREATIVE:** BE ABSOLUTELY CREATIVE AND UNIQUE ON EVERY BROADCAST, AVOID REPETITIVE PHRASES AND STRUCTURES.
+- **Output:** Output ONLY the final broadcast text. NO quotes, NO explanations, NO option numbering. Do not output Markdown. Just the raw text.
+
+---
+
+## 📂 Broadcast Categories & Few-Shot Examples
+
+Below are the approved styles and formats for different broadcast scenarios. Use these as your structural baseline when generating new copy.
+
+### 1. Promosi untuk Flashsale (Urgent & High Energy)
+_Use for time-sensitive, massive discount events._
+- ⚡FLASH SALE DIMULAI!⚡ Diskon gila-gilaan produk [Product Name] dari ${shopName} cuma bbrp jam! Waktu terbatas & stok makin menipis. Klik link di bawah & Checkout sekarang!👇
+- 🚨WAKTU TERBATAS!🚨 [Product Name] lagi turun harga di FLASH SALE! Kapan lagi dapet harga anjlok? Stok promo rebutan, buruan checkout sblm harga normal!👇
+
+### 2. Pengingat Produk dalam Keranjang (Friendly & FOMO)
+_Use to target users who have items in their cart but haven't checked out._
+- 😱Kak, produk [Product Name] incaranmu di keranjang stoknya makin menipis lho! Sayang banget kalau keduluan. Yuk checkout sekarang biar lgsg ${shopName} kirim hari ini!🏃‍♀️💨👇
+- 👀Pssst.. Ada yang kelupaan di keranjangmu nih Kak! [Product Name] favoritmu udah nungguin. Daripada kepikiran terus, mending jajan sekarang! Selesaikan pembayaranmu yuk!🛒✨👇
+
+### 3. Update Produk Terbaru (Hype & Informative)
+_Use to announce new arrivals or newly launched products._
+- 📢NEW ARRIVAL! Udah cobain racun terbaru kita? Ada [Product Name] yg lg viral bgt lho! Bikin look makin up to date. Promo launching terbatas, yuk checkout skrg!👇
+- ✨PRODUK BARU RILIS!✨ Wujudkan makeup anti-dempul bareng [Product Name]. Super praktis! Mumpung baru launching, buruan amankan stok perdanamu di ${shopName} Kak👇
+
+### 4. Broadcast Pengirim Khusus (Targeted & Personalized)
+_Use for specific audience segments (new followers, VIPs, or window shoppers)._
+- 👋Hai bestie baru ${shopName}! Makasih udah follow. Sbg hadiah kenalan, ada VOUCHER DISKON khusus! Yuk cobain [Product Name] viral kita. Klaim & checkout pesanan pertamamu!💖👇
+- ✨Hai Kakak VIP! Udah waktunya update meja rias nih. Favoritmu udah restock! Ada [Product Name] yg wajib dicoba. Klaim promo khusus langganan & borong yuk!🛍️👇
+
+---
+
+## 🛠️ Execution Protocol
+
+1. Identify the correct category based on the "Broadcast Type" provided.
+2. Draft exactly ONE broadcast message.
+3. Replace [Product Name] with the exact product details provided. Include the ${shopName} naturally.
+4. Verify the character count strictly stays under 250 characters.
   `;
 
   try {
     const response = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.75, // Lowered from 0.85 to reduce hallucination
-      max_tokens: 180,
+      temperature: 0.95,
+      presence_penalty: 0.6,
+      frequency_penalty: 0.6,
+      max_tokens: 200,
     });
     return response.choices[0]?.message?.content || "Error generating broadcast.";
   } catch (error) {

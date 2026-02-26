@@ -95,6 +95,11 @@ export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, 
     const targetItem = items.find(i => i.id === id);
     if (!targetItem) return;
 
+    // Extract creation group timestamp
+    const idParts = id.split('-');
+    const isGroupedItem = idParts.length >= 3 && idParts[0] === 'item';
+    const timestampGroup = isGroupedItem ? idParts[1] : null;
+
     const isSyncedField = syncedFields.includes(field);
     const updated = items.map(item => {
       if (item.id === id) {
@@ -102,7 +107,11 @@ export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, 
         newItem.total = calculateTotal(newItem);
         return newItem;
       }
-      if (isSyncedField && item.sku === targetItem.sku) {
+
+      const belongsToSameGroup = timestampGroup && item.id.startsWith(`item-${timestampGroup}-`);
+
+      // Only sync if they belong to the same creation group
+      if (isSyncedField && belongsToSameGroup) {
         const newItem = { ...item, [field]: value };
         newItem.total = calculateTotal(newItem); 
         return newItem;

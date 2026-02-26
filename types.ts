@@ -109,6 +109,7 @@ export interface CompetitorItem {
   shopId: ShopID;
   competitorName: string;
   competitorPrice: number;
+  affiliateCommission?: number;
   lastChecked: string;
 }
 
@@ -134,3 +135,13 @@ export const CAMPAIGN_TASKS: Task[] = [
   { id: 'c4', text: '⚡ Monitor Top 10 SKU Stock', frequency: 'daily' },
   { id: 'c6', text: '⚡ Upload 3 Videos (Teasers/Countdown)', frequency: 'daily' },
 ];
+
+export interface WindowState {
+  isOpen: boolean;
+  isMinimized: boolean;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  zIndex: number;
+}
+
+export type ViewType = 'analytics' | 'tasks' | 'pricing' | 'competitors' | 'videos' | 'campaigns';

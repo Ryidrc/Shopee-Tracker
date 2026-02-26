@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      strictPort: true, // Prevents silent switching to 3001 if 3000 is busy
+      strictPort: false, // Allows Vite to find the next available port
       host: "0.0.0.0",
     },
     plugins: [react()],

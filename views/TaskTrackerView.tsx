@@ -101,7 +101,8 @@ export const TaskTrackerView: React.FC<TaskTrackerViewProps> = ({
 
   const handleGenerateBroadcast = async () => {
     setIsGeneratingBroadcast(true);
-    const result = await generateBroadcastMessage(broadcastType);
+    const currentShopName = SHOPS.find(s => s.id === activeShopId)?.name || 'Our Shop';
+    const result = await generateBroadcastMessage(broadcastType, currentShopName);
     setBroadcastResult(result);
     setIsGeneratingBroadcast(false);
   };

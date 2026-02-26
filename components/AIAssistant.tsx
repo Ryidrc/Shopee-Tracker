@@ -48,6 +48,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   const [captionProduct, setCaptionProduct] = useState('');
   const [captionContext, setCaptionContext] = useState('');
   const [broadcastType, setBroadcastType] = useState('');
+  const [broadcastShop, setBroadcastShop] = useState<ShopID>('shop1');
+  const [broadcastProduct, setBroadcastProduct] = useState('');
   const [customerMessage, setCustomerMessage] = useState('');
   const [customerContext, setCustomerContext] = useState('');
   const [csResponse, setCsResponse] = useState<{ optionA: string; optionB: string; optionC: string } | null>(null);
@@ -117,7 +119,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setResponse('');
     
     try {
-      const result = await generateBroadcastMessage(broadcastType);
+      const shopName = SHOPS.find(s => s.id === broadcastShop)?.name || broadcastShop;
+      const result = await generateBroadcastMessage(broadcastType, shopName, broadcastProduct.trim() || undefined);
       setResponse(result || 'Unable to generate broadcast.');
     } catch (error) {
       setResponse('Error generating broadcast.');
@@ -317,18 +320,52 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
           {/* Broadcast Mode */}
           {mode === 'broadcast' && (
             <div className="space-y-4">
+              {/* Shop Selector */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Target Audience / Goal *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Shop *</label>
+                <div className="flex gap-2">
+                  {SHOPS.map(shop => (
+                    <button
+                      key={shop.id}
+                      onClick={() => setBroadcastShop(shop.id)}
+                      style={broadcastShop === shop.id ? { backgroundColor: shop.color, borderColor: shop.color } : {}}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
+                        broadcastShop === shop.id
+                          ? 'text-white'
+                          : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {shop.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Product Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Product to Promote (Optional)</label>
+                <input
+                  type="text"
+                  value={broadcastProduct}
+                  onChange={(e) => setBroadcastProduct(e.target.value)}
+                  placeholder="e.g., Spidol Alis 4 Mata, Lip Matte, Zodiac Lip Gloss"
+                  className="w-full px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                />
+              </div>
+
+              {/* Broadcast Type */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Broadcast Type / Goal *</label>
                 <input
                   type="text"
                   value={broadcastType}
                   onChange={(e) => setBroadcastType(e.target.value)}
-                  placeholder="e.g., Customer yang belum checkout, Re-engage inactive buyers"
+                  placeholder="e.g., Flash Sale, Pengingat Keranjang, New Arrival"
                   className="w-full px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                {['Payday Sale', 'Flash Sale', 'Gratis Ongkir', 'New Arrival', 'Clearance'].map(preset => (
+                {['Flash Sale', 'Pengingat Keranjang', 'Update Produk Terbaru', 'Broadcast Pengirim Khusus', 'Payday Sale'].map(preset => (
                   <button
                     key={preset}
                     onClick={() => setBroadcastType(preset)}
@@ -343,7 +380,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
                 disabled={isLoading || !broadcastType.trim()}
                 className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
-                {isLoading ? 'Generating...' : '📢 Generate Broadcast'}
+                {isLoading ? 'Generating...' : `📢 Generate Broadcast for ${SHOPS.find(s => s.id === broadcastShop)?.name}`}
               </button>
             </div>
           )}
