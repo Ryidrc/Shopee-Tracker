@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { CompetitorItem, PricingItem, SHOPS, ShopID } from "../types";
+import { CompetitorItem, PricingItem, ShopID, Shop } from "../types";
 import { formatCurrency } from "../utils";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Trash2, Plus, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 
 interface CompetitorViewProps {
+  shops: Shop[];
   competitors: CompetitorItem[];
   onUpdateCompetitors: (items: CompetitorItem[]) => void;
   pricingItems: PricingItem[];
@@ -27,7 +28,7 @@ interface CompetitorGroup {
 }
 
 export const CompetitorView: React.FC<CompetitorViewProps> = ({
-  competitors,
+  shops, competitors,
   onUpdateCompetitors,
   pricingItems,
   onRequestDelete,
@@ -256,7 +257,7 @@ export const CompetitorView: React.FC<CompetitorViewProps> = ({
               Competitor Tracking
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              {filteredByShop.length} products tracked in {SHOPS.find(s => s.id === selectedShopTab)?.name}
+              {filteredByShop.length} products tracked in {shops.find(s => s.id === selectedShopTab)?.name}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -289,7 +290,7 @@ export const CompetitorView: React.FC<CompetitorViewProps> = ({
       
       {/* Shop Tabs */}
       <div className="flex gap-2">
-        {SHOPS.map(shop => {
+        {shops.map(shop => {
           const shopCount = groupedCompetitors.filter(g => g.shopId === shop.id).length;
           return (
             <button
@@ -334,7 +335,7 @@ export const CompetitorView: React.FC<CompetitorViewProps> = ({
                   setNewComp({ ...newComp, mySku: "" });
                 }}
               >
-                {SHOPS.map((shop) => (
+                {shops.map((shop) => (
                   <option key={shop.id} value={shop.id}>
                     {shop.name}
                   </option>
@@ -441,13 +442,13 @@ export const CompetitorView: React.FC<CompetitorViewProps> = ({
           <div className="text-center py-12 text-slate-400 bg-white dark:bg-slate-800 rounded-2xl">
             {heroOnly && filteredByShop.length > 0
               ? "No competitors in Top 20 view."
-              : `No competitors tracked for ${SHOPS.find(s => s.id === selectedShopTab)?.name} yet.`}
+              : `No competitors tracked for ${shops.find(s => s.id === selectedShopTab)?.name} yet.`}
           </div>
         ) : (
           filteredGroups.map((group) => {
             const key = `${group.sku}-${group.shopId}`;
             const isExpanded = expandedGroups.has(key);
-            const shop = SHOPS.find((s) => s.id === group.shopId);
+            const shop = shops.find((s) => s.id === group.shopId);
             const diff = group.myPrice - group.avgPrice;
             const isExpensive = diff > 0;
             const suggestion = getPricingSuggestion(

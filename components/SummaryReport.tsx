@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { SalesRecord, VideoLog, TaskCompletion, SHOPS, ShopID } from '../types';
+import { SalesRecord, VideoLog, TaskCompletion, ShopID, Shop } from '../types';
 import { formatCurrency, formatNumber } from '../utils';
 
 interface SummaryReportProps {
+  shops: Shop[];
   salesData: SalesRecord[];
   videoLogs: VideoLog[];
   taskCompletions: TaskCompletion[];
@@ -14,7 +15,7 @@ interface SummaryReportProps {
 type ReportPeriod = 'weekly' | 'monthly';
 
 export const SummaryReport: React.FC<SummaryReportProps> = ({
-  salesData,
+  shops, salesData,
   videoLogs,
   taskCompletions,
   isOpen,
@@ -91,7 +92,7 @@ export const SummaryReport: React.FC<SummaryReportProps> = ({
     const bestDay = Object.entries(salesByDate).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
 
     // Shop breakdown
-    const shopBreakdown = SHOPS.map(shop => {
+    const shopBreakdown = shops.map(shop => {
       const shopSales = filteredSales.filter(r => r.shopId === shop.id);
       return {
         shop,
@@ -135,7 +136,7 @@ export const SummaryReport: React.FC<SummaryReportProps> = ({
     return `
 📊 ${periodLabel} Sales Report
 Period: ${r.startDate} to ${r.endDate}
-${selectedShop !== 'all' ? `Shop: ${SHOPS.find(s => s.id === selectedShop)?.name}` : 'All Shops'}
+${selectedShop !== 'all' ? `Shop: ${shops.find(s => s.id === selectedShop)?.name}` : 'All Shops'}
 
 💰 Total Sales: ${formatCurrency(r.totalSales)} (${r.salesChange >= 0 ? '+' : ''}${r.salesChange.toFixed(1)}%)
 📦 Total Orders: ${formatNumber(r.totalOrders)} (${r.ordersChange >= 0 ? '+' : ''}${r.ordersChange.toFixed(1)}%)
@@ -212,7 +213,7 @@ ${r.shopBreakdown.map(s => `- ${s.shop.name}: ${formatCurrency(s.sales)} (${s.or
             className="px-3 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
           >
             <option value="all">All Shops</option>
-            {SHOPS.map(shop => (
+            {shops.map(shop => (
               <option key={shop.id} value={shop.id}>{shop.name}</option>
             ))}
           </select>

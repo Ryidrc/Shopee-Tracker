@@ -1,5 +1,11 @@
 
-export type ShopID = 'shop1' | 'shop2' | 'shop3';
+export type ShopID = string;
+
+export interface Shop {
+  id: ShopID;
+  name: string;
+  color: string;
+}
 
 export interface SalesRecord {
   id: string;
@@ -113,11 +119,64 @@ export interface CompetitorItem {
   lastChecked: string;
 }
 
-export const SHOPS: { id: ShopID; name: string; color: string }[] = [
+export const INITIAL_SHOPS: Shop[] = [
   { id: 'shop1', name: 'MINIGLAM', color: '#F472B6' }, // Soft Pink
   { id: 'shop2', name: 'KISSMART', color: '#DC2626' }, // Red
   { id: 'shop3', name: 'KGLOW', color: '#8B5CF6' },    // Purplish
 ];
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  color: string;
+  managedShopIds: ShopID[];
+}
+
+export interface KPIReport {
+  id: string;
+  date: string;
+  memberId: string;
+  shopId: ShopID;
+  penjualan: number;
+  pesanan: number;
+  konversi: number;
+  pengunjung: number;
+}
+
+export interface TeamTask {
+  id: string;
+  text: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  isGlobal: boolean;
+  assignedMemberIds?: string[];
+}
+
+export interface TeamTaskCompletion {
+  taskId: string;
+  memberId: string;
+  periodKey: string;
+  completed: boolean;
+}
+
+export interface Issue {
+  id: string;
+  date: string;
+  memberId: string;
+  title: string;
+  description: string;
+  solution: string;
+  status: 'open' | 'pending' | 'resolved';
+}
+
+export interface ProjectIdea {
+  id: string;
+  date: string;
+  memberId: string;
+  title: string;
+  description: string;
+  estimatedTime: string;
+  priority: 'high' | 'medium' | 'low';
+}
 
 export const INITIAL_TASKS: Task[] = [
   { id: 't1', text: 'Check Chat Response Rate', frequency: 'daily', reminderTime: '08:00' },
@@ -144,4 +203,4 @@ export interface WindowState {
   zIndex: number;
 }
 
-export type ViewType = 'analytics' | 'tasks' | 'pricing' | 'competitors' | 'videos' | 'campaigns';
+export type ViewType = 'analytics' | 'tasks' | 'pricing' | 'competitors' | 'videos' | 'campaigns' | 'team';

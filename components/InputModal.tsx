@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { SalesRecord, SHOPS, ShopID } from '../types';
+import { SalesRecord, ShopID, Shop } from '../types';
 
 interface InputModalProps {
+  shops: Shop[];
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (record: Omit<SalesRecord, 'id'>) => void;
@@ -9,7 +10,7 @@ interface InputModalProps {
   existingData: SalesRecord[];
 }
 
-export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSubmit, onDelete, existingData }) => {
+export const InputModal: React.FC<InputModalProps> = ({ shops, isOpen, onClose, onSubmit, onDelete, existingData }) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     shopId: 'shop1' as ShopID,
@@ -103,7 +104,7 @@ export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSubmi
                 value={formData.shopId}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, shopId: e.target.value as ShopID})}
               >
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
                 ))}
               </select>

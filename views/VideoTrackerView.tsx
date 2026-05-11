@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { VideoLog, PricingItem, SHOPS, ShopID } from '../types';
+import { VideoLog, PricingItem, ShopID, Shop } from '../types';
 import { formatNumber } from '../utils';
 import { EmptyState, Badge } from '../components/UIComponents';
 import { Card } from '../components/ui/Card';
@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Video, Plus, Edit2, Trash2, ExternalLink, Search } from 'lucide-react';
 
 interface VideoTrackerViewProps {
+  shops: Shop[];
   videoLogs: VideoLog[];
   pricingItems: PricingItem[];
   onAddLog: (shopId: ShopID) => void;
@@ -37,8 +38,8 @@ const parseSku = (sku: string) => {
     return { type: sku, no: '' }; 
 };
 
-export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, pricingItems, onAddLog, onEditLog, onDeleteLog }) => {
-  const [activeShopId, setActiveShopId] = useState<ShopID>(SHOPS[0]!.id);
+export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ shops, videoLogs, pricingItems, onAddLog, onEditLog, onDeleteLog }) => {
+  const [activeShopId, setActiveShopId] = useState<ShopID>(shops[0]!.id);
   const [search, setSearch] = useState('');
 
   const tableData = useMemo(() => {
@@ -94,7 +95,7 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900">
             <div className="flex flex-col sm:flex-row gap-4 items-center w-full lg:w-auto">
                 <div className="flex bg-slate-100 dark:bg-slate-800 rounded-full p-1 border border-slate-200 dark:border-slate-700">
-                    {SHOPS.map(shop => (
+                    {shops.map(shop => (
                         <button
                             key={shop.id}
                             onClick={() => setActiveShopId(shop.id)}
@@ -165,7 +166,7 @@ export const VideoTrackerView: React.FC<VideoTrackerViewProps> = ({ videoLogs, p
                           <td colSpan={7} className="px-4 py-0">
                             <EmptyState 
                               icon="video"
-                              title={`No videos logged for ${SHOPS.find(s => s.id === activeShopId)?.name}`}
+                              title={`No videos logged for ${shops.find(s => s.id === activeShopId)?.name}`}
                               description="Start logging your Shopee video uploads to track views and performance metrics."
                               action={{
                                 label: 'Log First Video',

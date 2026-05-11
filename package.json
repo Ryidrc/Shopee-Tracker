@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "firebase": "^12.12.1",
     "groq-sdk": "^0.8.0",
     "lucide-react": "^0.563.0",
     "pocketbase": "^0.26.8",

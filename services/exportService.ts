@@ -1,12 +1,12 @@
 
 import * as XLSX from 'xlsx';
-import { SalesRecord, PricingItem, VideoLog, SHOPS } from '../types';
+import { SalesRecord, PricingItem, VideoLog, Shop } from '../types';
 import { formatCurrency } from '../utils';
 
 // Export sales data to Excel
-export const exportSalesDataToExcel = (data: SalesRecord[], fileName?: string) => {
+export const exportSalesDataToExcel = (data: SalesRecord[], shops: Shop[], fileName?: string) => {
   const worksheetData = data.map(record => {
-    const shopName = SHOPS.find(s => s.id === record.shopId)?.name || record.shopId;
+    const shopName = shops.find(s => s.id === record.shopId)?.name || record.shopId;
     return {
       'Date': record.date,
       'Shop': shopName,
@@ -43,9 +43,9 @@ export const exportSalesDataToExcel = (data: SalesRecord[], fileName?: string) =
 };
 
 // Export pricing data to Excel
-export const exportPricingDataToExcel = (data: PricingItem[], fileName?: string) => {
+export const exportPricingDataToExcel = (data: PricingItem[], shops: Shop[], fileName?: string) => {
   const worksheetData = data.map(item => {
-    const shopName = SHOPS.find(s => s.id === item.shopId)?.name || item.shopId;
+    const shopName = shops.find(s => s.id === item.shopId)?.name || item.shopId;
     const percentageSum = item.affiliate + item.admin + item.ongkir + item.flashSale + item.promotion;
     const percentageFees = (item.hargaJual * percentageSum) / 100;
     const netPayout = item.hargaJual - percentageFees - item.biaya1250;
@@ -80,9 +80,9 @@ export const exportPricingDataToExcel = (data: PricingItem[], fileName?: string)
 };
 
 // Export video logs to Excel
-export const exportVideoLogsToExcel = (data: VideoLog[], pricingItems: PricingItem[], fileName?: string) => {
+export const exportVideoLogsToExcel = (data: VideoLog[], pricingItems: PricingItem[], shops: Shop[], fileName?: string) => {
   const worksheetData = data.map(log => {
-    const shopName = SHOPS.find(s => s.id === log.shopId)?.name || log.shopId;
+    const shopName = shops.find(s => s.id === log.shopId)?.name || log.shopId;
     const product = pricingItems.find(p => p.sku === log.sku);
 
     return {

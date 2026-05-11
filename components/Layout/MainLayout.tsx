@@ -9,8 +9,9 @@ interface MainLayoutProps {
   setView: (view: any) => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
-  actions?: React.ReactNode;
   onOpenWindow?: (viewId: string) => void;
+  role?: 'manager' | 'employee' | null;
+  actions?: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -20,7 +21,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   isDarkMode,
   toggleTheme,
   actions,
-  onOpenWindow
+  onOpenWindow,
+  role
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -37,6 +39,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         isCollapsed={isCollapsed}
         toggleCollapse={() => setIsCollapsed(!isCollapsed)}
         onOpenWindow={onOpenWindow}
+        role={role}
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">

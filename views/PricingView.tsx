@@ -1,13 +1,14 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { PricingItem, SHOPS } from '../types';
-import { formatCurrency, formatNumber, formatPercent } from '../utils';
+import React, { useState, useMemo, useRef } from 'react';
+import { PricingItem, Shop } from '../types';
+import { formatCurrency, formatNumber } from '../utils';
 import { PricingCalculator } from '../components/PricingCalculator';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Calculator, Plus, Trash2, X, Check, Save } from 'lucide-react';
 
 interface PricingViewProps {
+  shops: Shop[];
   items: PricingItem[];
   onUpdateItems: (items: PricingItem[]) => void;
   onRequestDelete: (id: string) => void;
@@ -18,8 +19,8 @@ type SortConfig = {
   direction: 'asc' | 'desc';
 } | null;
 
-export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, onRequestDelete }) => {
-  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0]!.id);
+export const PricingView: React.FC<PricingViewProps> = ({ shops, items, onUpdateItems, onRequestDelete }) => {
+  const [activeShopId, setActiveShopId] = useState<string>(shops[0]!.id);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const tableBottomRef = useRef<HTMLTableRowElement>(null);
@@ -41,7 +42,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, 
     const defaultExp = new Date();
     defaultExp.setFullYear(defaultExp.getFullYear() + 2);
 
-    const newItems: PricingItem[] = SHOPS.map(shop => ({
+    const newItems: PricingItem[] = shops.map(shop => ({
       id: `item-${timestamp}-${shop.id}`,
       sku: sku,
       shopId: shop.id,
@@ -82,13 +83,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, 
     return item.hargaJual - percentageFees - fixedFees;
   };
 
-  // Recalculate totals on mount if needed
-  useEffect(() => {
-    const updated = items.map(item => ({...item, total: calculateTotal(item)}));
-    if (JSON.stringify(updated.map(i => i.total)) !== JSON.stringify(items.map(i => i.total))) {
-       onUpdateItems(updated);
-    }
-  }, []);
+
 
   const handleChange = (id: string, field: keyof PricingItem, value: any) => {
     const syncedFields: (keyof PricingItem)[] = ['productName', 'image', 'brand', 'priceNet', 'sku', 'stock'];
@@ -298,7 +293,7 @@ export const PricingView: React.FC<PricingViewProps> = ({ items, onUpdateItems, 
             />
             
             <div className="flex bg-slate-100 dark:bg-slate-700/50 rounded-full p-1">
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                     <button
                         key={shop.id}
                         onClick={() => { setActiveShopId(shop.id); setSelectedItemIds(new Set()); }}

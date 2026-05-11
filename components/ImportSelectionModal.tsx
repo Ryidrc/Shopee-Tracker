@@ -1,8 +1,9 @@
 
 import { useState } from 'react';
-import { SHOPS, ShopID } from '../types';
+import { ShopID, Shop } from '../types';
 
 interface ImportSelectionModalProps {
+  shops: Shop[];
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (shopId: ShopID) => void;
@@ -12,9 +13,9 @@ interface ImportSelectionModalProps {
 }
 
 export const ImportSelectionModal: React.FC<ImportSelectionModalProps> = ({ 
-  isOpen, onClose, onConfirm, recordCount, dateRange, fileName 
+  shops, isOpen, onClose, onConfirm, recordCount, dateRange, fileName 
 }) => {
-  const [selectedShop, setSelectedShop] = useState<ShopID>(SHOPS[0]!.id);
+  const [selectedShop, setSelectedShop] = useState<ShopID>(shops[0]!.id);
 
   if (!isOpen) return null;
 
@@ -38,7 +39,7 @@ export const ImportSelectionModal: React.FC<ImportSelectionModalProps> = ({
                 onChange={(e) => setSelectedShop(e.target.value as ShopID)}
                 className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-shopee-orange focus:border-shopee-orange p-2.5"
             >
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                     <option key={shop.id} value={shop.id}>{shop.name}</option>
                 ))}
             </select>

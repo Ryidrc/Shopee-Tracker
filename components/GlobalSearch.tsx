@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { SalesRecord, PricingItem, VideoLog, SHOPS } from '../types';
+import {  SalesRecord, PricingItem, VideoLog , Shop } from "../types";
 import { formatCurrency } from '../utils';
 
 interface SearchResult {
@@ -14,6 +14,7 @@ interface SearchResult {
 }
 
 interface GlobalSearchProps {
+  shops: Shop[];
   salesData: SalesRecord[];
   pricingItems: PricingItem[];
   videoLogs: VideoLog[];
@@ -23,7 +24,7 @@ interface GlobalSearchProps {
 }
 
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({
-  salesData,
+  shops, salesData,
   pricingItems,
   videoLogs,
   onNavigate,
@@ -54,7 +55,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     // Search sales data
     salesData.forEach(record => {
-      const shopName = SHOPS.find(s => s.id === record.shopId)?.name || '';
+      const shopName = shops.find(s => s.id === record.shopId)?.name || '';
       const searchText = `${record.date} ${shopName} ${record.penjualan}`.toLowerCase();
       
       if (searchText.includes(q)) {

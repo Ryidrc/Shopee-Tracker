@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, TaskCompletion, SHOPS, CAMPAIGN_TASKS, WorkLog, PricingItem, SalesRecord } from '../types';
+import { Task, TaskCompletion, CAMPAIGN_TASKS, WorkLog, PricingItem, SalesRecord, Shop } from '../types';
 import { generateBroadcastMessage } from '../services/groqService';
 import { ProgressBar, Badge } from '../components/UIComponents';
 import { Card } from '../components/ui/Card';
@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Clipboard, Play, Plus, X, Save, Edit2, Trash2 } from 'lucide-react';
 
 interface TaskTrackerViewProps {
+  shops: Shop[];
   tasks: Task[];
   completions: TaskCompletion[];
   onToggleTask: (taskId: string, shopId: string, date: string, checked: boolean) => void;
@@ -28,11 +29,11 @@ const BROADCAST_TYPES = [
 ];
 
 export const TaskTrackerView: React.FC<TaskTrackerViewProps> = ({ 
-  tasks, completions, onToggleTask, onAddTask, onEditTask, onDeleteTask,
+  shops, tasks, completions, onToggleTask, onAddTask, onEditTask, onDeleteTask,
   workLogs = [], onUpdateWorkLog, pricingItems = [], salesData = []
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [activeShopId, setActiveShopId] = useState<string>(SHOPS[0]!.id);
+  const [activeShopId, setActiveShopId] = useState<string>(shops[0]!.id);
   
   // Edit Mode State
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -101,7 +102,7 @@ export const TaskTrackerView: React.FC<TaskTrackerViewProps> = ({
 
   const handleGenerateBroadcast = async () => {
     setIsGeneratingBroadcast(true);
-    const currentShopName = SHOPS.find(s => s.id === activeShopId)?.name || 'Our Shop';
+    const currentShopName = shops.find(s => s.id === activeShopId)?.name || 'Our Shop';
     const result = await generateBroadcastMessage(broadcastType, currentShopName);
     setBroadcastResult(result);
     setIsGeneratingBroadcast(false);
@@ -149,7 +150,7 @@ export const TaskTrackerView: React.FC<TaskTrackerViewProps> = ({
         
         <div className="flex gap-4 items-center">
              <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full">
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                     <button
                         key={shop.id}
                         onClick={() => setActiveShopId(shop.id)}

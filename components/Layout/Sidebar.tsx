@@ -27,6 +27,7 @@ interface SidebarProps {
   isCollapsed: boolean;
   toggleCollapse: () => void;
   onOpenWindow?: (viewId: string) => void;
+  role?: 'manager' | 'employee' | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -38,16 +39,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   toggleTheme,
   isCollapsed,
   toggleCollapse,
-  onOpenWindow
+  onOpenWindow,
+  role
 }) => {
-  const navItems = [
+  let navItems = [
     { id: 'analytics', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks', label: 'Productivity', icon: CheckSquare },
     { id: 'pricing', label: 'Pricing', icon: Tag },
     { id: 'competitors', label: 'Competitors', icon: Users },
     { id: 'videos', label: 'Videos', icon: Video },
-    { id: 'campaigns', label: 'Campaigns', icon: Megaphone },
+    { id: 'team', label: role === 'employee' ? 'My KPI' : 'Team KPI', icon: Users },
   ];
+
+  if (role === 'employee') {
+    navItems = navItems.filter(item => ['team', 'pricing'].includes(item.id));
+  }
 
   const handleNavClick = (viewId: string) => {
     setView(viewId);

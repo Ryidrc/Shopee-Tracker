@@ -3,18 +3,19 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import { SalesRecord, SHOPS, ShopID, Product, Goal, PricingItem } from '../types';
+import { SalesRecord, ShopID, Product, Goal, PricingItem, KPIReport, TeamMember, TeamTask, TeamTaskCompletion, Issue, Shop } from '../types';
 import { formatCurrency, formatNumber, formatPercent } from '../utils';
 import { StatCard } from '../components/StatCard';
 import { EmptyState } from '../components/UIComponents';
 import { GoalSetting } from '../components/GoalSetting';
-import { getSalesCoachInsight } from '../services/groqService';
 import { exportSalesDataToExcel } from '../services/exportService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Download, Plus, RefreshCw, ChevronRight } from 'lucide-react';
+import { Download, Plus, RefreshCw, ChevronRight, AlertCircle } from 'lucide-react';
+
 
 interface AnalyticsViewProps {
+  shops: Shop[];
   data: SalesRecord[];
   products: Product[];
   goals: Goal[];
@@ -29,6 +30,11 @@ interface AnalyticsViewProps {
   setDateRange: (range: { start: string; end: string }) => void;
   pricingItems?: PricingItem[];
   onEditProduct?: (product: Product) => void;
+  teamReports?: KPIReport[];
+  teamMembers?: TeamMember[];
+  teamTasks?: TeamTask[];
+  teamTaskCompletions?: TeamTaskCompletion[];
+  teamIssues?: Issue[];
 }
 
 // Improved Markdown Parser
@@ -86,7 +92,7 @@ const renderFormattedText = (text: string) => {
 };
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ 
-  data, 
+  shops, data, 
   products,
   goals,
   onAddDataClick, 
@@ -99,14 +105,54 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   dateRange,
   setDateRange,
   pricingItems = [],
-  onEditProduct
+  onEditProduct,
+  teamReports = [],
+  teamMembers = [],
+  teamTasks = [],
+  teamTaskCompletions = [],
+  teamIssues = []
 }) => {
-  const [selectedShops, setSelectedShops] = useState<ShopID[]>(['shop1', 'shop2', 'shop3']);
+  const [selectedShops, setSelectedShops] = useState<ShopID[]>(() => shops.map(s => s.id));
   const [metric, setMetric] = useState<keyof Omit<SalesRecord, 'id' | 'date' | 'shopId'>>('penjualan');
   const [activeRangeBtn, setActiveRangeBtn] = useState<'7d' | '30d' | 'mtd' | 'custom'>('7d');
-  
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
+
+  // ---- TEAM DATA COMPUTATIONS ----
+  const today = new Date().toISOString().split('T')[0];
+
+  // Task completion per member (today's daily tasks)
+  const memberTaskCompletion = useMemo(() => {
+    const now = new Date();
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+    const periodKeys: Record<string, string> = {
+      daily: now.toISOString().split('T')[0],
+      weekly: 'week-' + weekStart.toISOString().split('T')[0],
+      monthly: 'month-' + now.getFullYear() + '-' + (now.getMonth() + 1),
+    };
+    return teamMembers.map(member => {
+      const byFreq = (['daily', 'weekly', 'monthly'] as const).map(freq => {
+        const freqTasks = teamTasks.filter(t => t.frequency === freq && (t.isGlobal || (t.assignedMemberIds && t.assignedMemberIds.includes(member.id))));
+        const done = teamTaskCompletions.filter(tc => tc.memberId === member.id && tc.periodKey === periodKeys[freq] && tc.completed).length;
+        const pct = freqTasks.length > 0 ? Math.round(done / freqTasks.length * 100) : 0;
+        return { freq, done, total: freqTasks.length, pct };
+      });
+      return { id: member.id, name: member.name.split(' ')[0], color: member.color, byFreq };
+    });
+  }, [teamMembers, teamTasks, teamTaskCompletions]);
+
+  // Team sales trend (last 14 days from member reports)
+  const teamSalesTrend = useMemo(() => {
+    const days = Array.from({ length: 14 }).map((_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (13 - i));
+      const dateStr = d.toISOString().split('T')[0];
+      const dayTotal = teamReports.filter(r => r.date === dateStr).reduce((sum, r) => sum + (r.penjualan || 0), 0);
+      return { date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }), team: dayTotal };
+    });
+    return days;
+  }, [teamReports]);
+
+  // Goals progress using team reports (moved to after filteredData)
+  // Open issues from team
+  const openTeamIssues = useMemo(() => teamIssues.filter(i => i.status !== 'resolved'), [teamIssues]);
 
   // Quick Date Selectors
   const setQuickRange = (range: '7d' | '30d' | 'mtd') => {
@@ -143,14 +189,29 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [data, dateRange, selectedShops]);
 
-  // Aggregate data for totals
+  // Aggregate data for totals (includes both manager's salesData + team member KPI reports)
   const totals = useMemo(() => {
-    return filteredData.reduce((acc, curr) => ({
+    const base = filteredData.reduce((acc, curr) => ({
       penjualan: acc.penjualan + curr.penjualan,
       pesanan: acc.pesanan + curr.pesanan,
       pengunjung: acc.pengunjung + curr.pengunjung,
     }), { penjualan: 0, pesanan: 0, pengunjung: 0 });
-  }, [filteredData]);
+
+    // Also add team member reports that fall within the date range
+    const teamTotals = teamReports
+      .filter(r => r.date >= dateRange.start && r.date <= dateRange.end)
+      .reduce((acc, r) => ({
+        penjualan: acc.penjualan + (r.penjualan || 0),
+        pesanan: acc.pesanan + (r.pesanan || 0),
+        pengunjung: acc.pengunjung + (r.pengunjung || 0),
+      }), { penjualan: 0, pesanan: 0, pengunjung: 0 });
+
+    return {
+      penjualan: base.penjualan + teamTotals.penjualan,
+      pesanan: base.pesanan + teamTotals.pesanan,
+      pengunjung: base.pengunjung + teamTotals.pengunjung,
+    };
+  }, [filteredData, teamReports, dateRange]);
 
   // Get Latest Health Metrics per Shop (based on selected)
   const healthMetrics = useMemo(() => {
@@ -160,46 +221,55 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       const latest = shopRecords[0];
       return {
         shopId,
-        name: SHOPS.find(s => s.id === shopId)?.name,
+        name: shops.find(s => s.id === shopId)?.name,
         chat: latest?.chatResponseRate,
         lsr: latest?.lateShipmentRate
       };
     }).filter(h => h.chat !== undefined || h.lsr !== undefined);
   }, [data, selectedShops]);
 
-  // Calculate Monthly Progress
-
+  // Goals progress using team reports
+  const goalsWithProgress = useMemo(() => {
+    return goals.map(goal => {
+      const monthStart = new Date(); monthStart.setDate(1);
+      const monthStr = monthStart.toISOString().split('T')[0];
+      const monthlyTeamSales = teamReports.filter(r => r.date >= monthStr).reduce((sum, r) => sum + (r.penjualan || 0), 0);
+      const monthlySales = filteredData.filter(d => d.date >= monthStr).reduce((sum, d) => sum + (d.penjualan || 0), 0);
+      const totalSales = monthlyTeamSales + monthlySales;
+      const pct = goal.target > 0 ? Math.min(Math.round(totalSales / goal.target * 100), 100) : 0;
+      return { ...goal, progress: pct, current: totalSales };
+    });
+  }, [goals, teamReports, filteredData]);
 
   const chartData = useMemo(() => {
-    const dates = Array.from(new Set(filteredData.map(d => d.date)));
-    return dates.map(date => {
+    // Merge shop sales data + team-submitted reports by date and shopId
+    const allDates = Array.from(new Set([
+      ...filteredData.map(d => d.date),
+      ...teamReports.filter(r => r.date >= dateRange.start && r.date <= dateRange.end).map(r => r.date)
+    ])).sort();
+
+    return allDates.map(date => {
       const entry: any = { date };
-      SHOPS.forEach(shop => {
-        const record = filteredData.find(d => d.date === date && d.shopId === shop.id);
-        entry[shop.id] = record ? record[metric] : null; 
+      shops.forEach(shop => {
+        // Sum from manager's own records
+        const shopRecord = filteredData.find(d => d.date === date && d.shopId === shop.id);
+        const ownValue = shopRecord ? (shopRecord[metric] ?? 0) : 0;
+        // Sum from team member reports for same shop+date
+        const teamValue = teamReports
+          .filter(r => r.date === date && r.shopId === shop.id && r.date >= dateRange.start && r.date <= dateRange.end)
+          .reduce((sum, r) => {
+            const v = r[metric as keyof typeof r];
+            return sum + (typeof v === 'number' ? v : 0);
+          }, 0);
+        const combined = ownValue + teamValue;
+        entry[shop.id] = combined > 0 ? combined : null;
       });
       return entry;
     });
-  }, [filteredData, metric]);
+  }, [filteredData, teamReports, metric, shops, dateRange]);
 
-  const handleAiCoach = async () => {
-    setLoadingAi(true);
-    setAiInsight(null);
-    
-    // Get Shop Names for Context
-    const activeShopNames = SHOPS.filter(s => selectedShops.includes(s.id)).map(s => s.name);
-    
-    // Prepare Context Object
-    const context = {
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        shopNames: activeShopNames
-    };
 
-    const result = await getSalesCoachInsight(filteredData, context);
-    setAiInsight(result);
-    setLoadingAi(false);
-  };
+
 
   const getRangeBtnClass = (range: string) => 
     `px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
@@ -220,7 +290,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shops:</span>
               <div className="flex gap-2">
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                   <button
                     key={shop.id}
                     onClick={() => toggleShop(shop.id)}
@@ -242,20 +312,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <div className="flex gap-2">
               <Button 
                 variant="outline"
-                onClick={() => exportSalesDataToExcel(filteredData)}
+                onClick={() => exportSalesDataToExcel(filteredData, shops)}
                 disabled={filteredData.length === 0}
                 className="gap-2"
                 title="Export to Excel"
               >
                 <Download size={14} />
                 Export
-              </Button>
-              <Button 
-                onClick={onAddDataClick}
-                className="gap-2"
-              >
-                <Plus size={16} />
-                Report Sales
               </Button>
             </div>
         </div>
@@ -297,7 +360,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       </Card>
 
       {/* Goal Setting & Progress Tracking */}
-      <GoalSetting 
+      <GoalSetting shops={shops} 
         salesData={data} 
         goals={goals} 
         onAddGoal={onAddGoal} 
@@ -308,7 +371,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       {healthMetrics.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
              {healthMetrics.map(shop => (
-                 <Card key={shop.shopId} className="border-l-4 p-4" style={{borderLeftColor: SHOPS.find(s=>s.id===shop.shopId)?.color}}>
+                 <Card key={shop.shopId} className="border-l-4 p-4" style={{borderLeftColor: shops.find(s=>s.id===shop.shopId)?.color}}>
                      <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-sm">{shop.name} Operations</h4>
                      <div className="flex items-center gap-4">
                         <div className="flex-1">
@@ -383,7 +446,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <defs>
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                    <linearGradient key={shop.id} id={`color-${shop.id}`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={shop.color} stopOpacity={0.1}/>
                       <stop offset="95%" stopColor={shop.color} stopOpacity={0}/>
@@ -411,7 +474,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 formatter={(val: number) => metric === 'penjualan' ? formatCurrency(val) : metric === 'konversi' ? formatPercent(val) : formatNumber(val)}
               />
               <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-              {SHOPS.map(shop => (
+              {shops.map(shop => (
                  selectedShops.includes(shop.id) && (
                    <Area 
                     key={shop.id} 
@@ -433,33 +496,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
       </Card>
 
-      {/* AI Coach Banner - Compact */}
-      <Card className="bg-gradient-to-br from-indigo-600 to-violet-700 dark:from-indigo-900 dark:to-violet-950 p-6 text-white shadow-soft-lg relative overflow-hidden border-none text-left">
-         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">✨</span>
-                AI Sales Coach
-              </h3>
-              <p className="text-indigo-100 text-sm opacity-90 mt-1">Get instant strategic advice based on your current metrics.</p>
-            </div>
-            <Button 
-              onClick={handleAiCoach}
-              disabled={loadingAi}
-              className="bg-white text-indigo-700 hover:bg-indigo-50 border-none shadow-lg shadow-indigo-900/20"
-            >
-              {loadingAi ? 'Thinking...' : 'Analyze Performance'}
-            </Button>
-         </div>
-         {aiInsight && (
-            <div className="mt-6 relative z-10 p-5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 text-sm leading-relaxed animate-fade-in shadow-inner">
-                {renderFormattedText(aiInsight)}
-            </div>
-         )}
-         {/* Decorative shapes */}
-         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
-         <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-indigo-400 opacity-20 rounded-full blur-2xl"></div>
-      </Card>
+
 
       {/* Top Products - Enhanced Table */}
       <Card>
@@ -492,7 +529,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                    {products.sort((a,b) => a.rank - b.rank).map((p) => {
-                      const shop = SHOPS.find(s => s.id === p.shopId);
+                      const shop = shops.find(s => s.id === p.shopId);
                       // Find linked Pricing Item
                       const pricingItem = p.sku ? pricingItems.find(pi => pi.sku.toLowerCase() === p.sku!.toLowerCase()) : null;
                       
@@ -592,6 +629,113 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         )}
       </Card>
 
+      {/* ===== TEAM OVERVIEW SECTION ===== */}
+      {teamMembers.length > 0 && (
+        <>
+          {/* Task Completion by Frequency */}
+          <Card>
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 font-display mb-5">Task Completion by Category</h3>
+            {memberTaskCompletion.every(m => m.byFreq.every(f => f.total === 0)) ? (
+              <p className="text-slate-400 text-sm">No tasks defined yet. Go to Team KPI → Manage Tasks to add tasks.</p>
+            ) : (
+              <div className="space-y-6">
+                {(['daily', 'weekly', 'monthly'] as const).map(freq => {
+                  const hasAny = memberTaskCompletion.some(m => m.byFreq.find(f => f.freq === freq)!.total > 0);
+                  if (!hasAny) return null;
+                  return (
+                    <div key={freq}>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 capitalize">{freq} Tasks</h4>
+                      <div className="space-y-2">
+                        {memberTaskCompletion.map(m => {
+                          const f = m.byFreq.find(x => x.freq === freq)!;
+                          if (f.total === 0) return null;
+                          return (
+                            <div key={m.id}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0" style={{backgroundColor: m.color}}>{m.name.charAt(0)}</div>
+                                  <span className="font-medium text-slate-700 dark:text-slate-300">{m.name}</span>
+                                </div>
+                                <span className="text-slate-500">{f.done}/{f.total} ({f.pct}%)</span>
+                              </div>
+                              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5">
+                                <div
+                                  className="h-2.5 rounded-full transition-all"
+                                  style={{ width: `${f.pct}%`, backgroundColor: f.pct >= 80 ? '#22c55e' : f.pct >= 50 ? '#f59e0b' : '#ef4444' }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+            {/* Open Issues Panel */}
+            <Card>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle size={18} className="text-amber-500"/>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 font-display">Open Issues</h3>
+                {openTeamIssues.length > 0 && (
+                  <span className="ml-auto bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{openTeamIssues.length}</span>
+                )}
+              </div>
+              {openTeamIssues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-2">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <p className="text-sm text-slate-500">No open issues — team is on track!</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {openTeamIssues.map(issue => {
+                    const member = teamMembers.find(m => m.id === issue.memberId);
+                    return (
+                      <div key={issue.id} className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{backgroundColor: member?.color || '#999'}}>{member?.name.charAt(0)}</div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{issue.title}</p>
+                          <p className="text-xs text-slate-500">{member?.name} · {issue.date} · <span className={issue.status==='open'?'text-red-600':'text-amber-600'}>{issue.status}</span></p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+          {/* Sales Goals with Team Data */}
+
+          {goalsWithProgress.length > 0 && (
+            <Card>
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 font-display mb-4">Sales Goals Progress (This Month)</h3>
+              <div className="space-y-4">
+                {goalsWithProgress.map(goal => (
+                  <div key={goal.id}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium text-slate-700 dark:text-slate-300 capitalize">{goal.type} Goal</span>
+                      <span className="text-slate-500">{goal.type === 'sales' ? formatCurrency(goal.current) : formatNumber(goal.current)} / {goal.type === 'sales' ? formatCurrency(goal.target) : formatNumber(goal.target)} ({goal.progress}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3">
+                      <div
+                        className="h-3 rounded-full transition-all"
+                        style={{ width: `${goal.progress}%`, backgroundColor: goal.progress >= 100 ? '#22c55e' : goal.progress >= 70 ? '#f59e0b' : '#EE4D2D' }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Includes team reports + shop sales data</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
       {/* Sales Data Log Table */}
       <Card className="overflow-hidden p-0">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
@@ -617,7 +761,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                  </tr>
                ) : (
                  [...filteredData].reverse().map((record) => {
-                    const shop = SHOPS.find(s => s.id === record.shopId);
+                    const shop = shops.find(s => s.id === record.shopId);
                     return (
                       <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">{record.date}</td>

@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { SalesRecord, SHOPS } from '../types';
+import { SalesRecord } from '../types';
 import { formatCurrency, formatPercent, formatNumber } from '../utils';
 
 interface CoachContext {
@@ -46,8 +46,8 @@ export const getSalesCoachInsight = async (records: SalesRecord[], context: Coac
   } else {
       // Granular mode
       dataSummary = sortedRecords.map(r => {
-        const shopName = SHOPS.find(s => s.id === r.shopId)?.name || r.shopId;
-        return `[${r.date}] ${shopName}: Sales=${formatCurrency(r.penjualan)}, Orders=${r.pesanan}, Visits=${formatNumber(r.pengunjung)}, Conv=${formatPercent(r.konversi)}`;
+        const shopLabel = r.shopId;
+        return `[${r.date}] ${shopLabel}: Sales=${formatCurrency(r.penjualan)}, Orders=${r.pesanan}, Visits=${formatNumber(r.pengunjung)}, Conv=${formatPercent(r.konversi)}`;
       }).join('\n');
   }
 

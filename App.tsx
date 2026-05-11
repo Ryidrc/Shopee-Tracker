@@ -4,7 +4,8 @@ import {
   SalesRecord,
   TaskCompletion,
   Product,
-  SHOPS,
+  INITIAL_SHOPS,
+  Shop,
   INITIAL_TASKS,
   Task,
   PricingItem,
@@ -15,35 +16,42 @@ import {
   Goal,
   WindowState,
   ViewType,
+  TeamMember,
+  KPIReport,
+  TeamTask,
+  TeamTaskCompletion,
+  Issue,
+  ProjectIdea,
 } from "./types";
 import { AnalyticsView } from "./views/AnalyticsView";
-import { TaskTrackerView } from "./views/TaskTrackerView";
 import { PricingView } from "./views/PricingView";
 import { CompetitorView } from "./views/CompetitorView";
 import { VideoTrackerView } from "./views/VideoTrackerView";
-import { CampaignGeneratorView } from "./views/CampaignGeneratorView";
+import { TeamKPIView } from "./views/TeamKPIView";
 import { InputModal } from "./components/InputModal";
 import { ProductModal } from "./components/ProductModal";
 import { VideoLogModal } from "./components/VideoLogModal";
 import { ConfirmationModal } from "./components/ConfirmationModal";
 import { ImportSelectionModal } from "./components/ImportSelectionModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { ToastContainer, useToast } from "./components/Toast";
 import { DataRecoveryPanel } from "./components/DataRecoveryPanel";
-import { AIAssistant } from "./components/AIAssistant";
+import { RoleSelection } from "./components/RoleSelection";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { SummaryReport } from "./components/SummaryReport";
 import { Window } from "./components/Window";
-import { INITIAL_PRICING, INITIAL_VIDEO_LOGS } from "./data";
+import { INITIAL_PRICING, INITIAL_VIDEO_LOGS, INITIAL_TEAM_MEMBERS, INITIAL_KPI_REPORTS } from "./data";
 import { MainLayout } from "./components/Layout/MainLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { useFirestoreSync } from "./hooks/useFirestoreSync";
 import { usePocketBase } from "./hooks/usePocketBase";
 import { AuthModal } from "./components/AuthModal";
 import * as XLSX from "xlsx";
 
 function App() {
   const [view, setView] = useState<
-    "analytics" | "tasks" | "pricing" | "competitors" | "videos" | "campaigns"
+    "analytics" | "tasks" | "pricing" | "competitors" | "videos" | "campaigns" | "team"
   >("analytics");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +64,15 @@ function App() {
     end: new Date().toISOString().split("T")[0],
   });
 
+  const [role, setRole] = useLocalStorage<'manager' | 'employee' | null>("user_role", null);
+  const [activeMemberId, setActiveMemberId] = useLocalStorage<string>("active_member_id", "");
+
+  useEffect(() => {
+    if (role === 'employee' && view !== 'team' && view !== 'pricing') {
+      setView('team');
+    }
+  }, [role, view]);
+
   // HELPER: Sanitize Products to ensure unique IDs
   const sanitizeProducts = (rawProducts: any[]): Product[] => {
     const seenIds = new Set();
@@ -64,50 +81,36 @@ function App() {
       if (typeof id !== "string") id = String(id || "");
       id = id.trim();
       if (!id || seenIds.has(id) || id === "undefined" || id === "null") {
-        id = `prod-${Date.now()}-${i}`;
+        // Generate a STABLE id based on index and product properties to avoid render loops
+        const fallbackStr = (p.sku || p.name || 'unk').replace(/\s+/g, '-').toLowerCase();
+        id = `prod-${fallbackStr}-${i}`;
       }
       seenIds.add(id);
       return { ...p, id };
     });
   };
 
-  // -- STATE INITIALIZATION WITH AUTO-PERSISTENCE --
-  const [salesData, setSalesData] = useLocalStorage<SalesRecord[]>(
-    "shopee_sales_data",
-    [],
-  );
-  const [tasks, setTasks] = useLocalStorage<Task[]>(
-    "shopee_tasks_def",
-    INITIAL_TASKS,
-  );
-  const [taskCompletions, setTaskCompletions] = useLocalStorage<
-    TaskCompletion[]
-  >("shopee_task_completions", []);
-  const [goals, setGoals] = useLocalStorage<Goal[]>("shopee_goals", []);
-  const [workLogs, setWorkLogs] = useLocalStorage<WorkLog[]>(
-    "shopee_work_logs",
-    [],
-  );
+  // -- STATE INITIALIZATION WITH CLOUD PERSISTENCE (FIREBASE) --
+  const [shops, setShops] = useFirestoreSync<Shop[]>("appData", "shopee_shops", INITIAL_SHOPS);
+  const [teamMembers, setTeamMembers] = useFirestoreSync<TeamMember[]>("appData", "shopee_team_members", INITIAL_TEAM_MEMBERS);
+  const [teamReports, setTeamReports] = useFirestoreSync<KPIReport[]>("appData", "shopee_team_reports", INITIAL_KPI_REPORTS);
+  const [teamTasks, setTeamTasks] = useFirestoreSync<TeamTask[]>("appData", "shopee_team_tasks", []);
+  const [teamTaskCompletions, setTeamTaskCompletions] = useFirestoreSync<TeamTaskCompletion[]>("appData", "shopee_team_task_completions", []);
+  const [teamIssues, setTeamIssues] = useFirestoreSync<Issue[]>("appData", "shopee_team_issues", []);
+  const [teamProjects, setTeamProjects] = useFirestoreSync<ProjectIdea[]>("appData", "shopee_team_projects", []);
+
+  const [salesData, setSalesData] = useFirestoreSync<SalesRecord[]>("appData", "shopee_sales_data", []);
+  const [tasks, setTasks] = useFirestoreSync<Task[]>("appData", "shopee_tasks_def", INITIAL_TASKS);
+  const [taskCompletions, setTaskCompletions] = useFirestoreSync<TaskCompletion[]>("appData", "shopee_task_completions", []);
+  const [goals, setGoals] = useFirestoreSync<Goal[]>("appData", "shopee_goals", []);
+  const [workLogs, setWorkLogs] = useFirestoreSync<WorkLog[]>("appData", "shopee_work_logs", []);
 
   // Products with sanitizer
-  const [products, setProducts] = useLocalStorage<Product[]>(
-    "shopee_hero_products",
-    [],
-    sanitizeProducts,
-  );
+  const [products, setProducts] = useFirestoreSync<Product[]>("appData", "shopee_hero_products", [], sanitizeProducts);
 
-  const [pricingItems, setPricingItems] = useLocalStorage<PricingItem[]>(
-    "shopee_pricing_data",
-    INITIAL_PRICING,
-  );
-  const [competitors, setCompetitors] = useLocalStorage<CompetitorItem[]>(
-    "shopee_competitors",
-    [],
-  );
-  const [videoLogs, setVideoLogs] = useLocalStorage<VideoLog[]>(
-    "shopee_video_logs",
-    INITIAL_VIDEO_LOGS,
-  );
+  const [pricingItems, setPricingItems] = useFirestoreSync<PricingItem[]>("appData", "shopee_pricing_data", INITIAL_PRICING);
+  const [competitors, setCompetitors] = useFirestoreSync<CompetitorItem[]>("appData", "shopee_competitors", []);
+  const [videoLogs, setVideoLogs] = useFirestoreSync<VideoLog[]>("appData", "shopee_video_logs", INITIAL_VIDEO_LOGS);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -133,10 +136,10 @@ function App() {
   // Data Recovery Panel State
   const [isRecoveryPanelOpen, setIsRecoveryPanelOpen] = useState(false);
 
-  // AI Assistant, Search, and Report State
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  // Search and Report State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSummaryReportOpen, setIsSummaryReportOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // PocketBase Authentication State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -185,6 +188,13 @@ function App() {
       isOpen: false,
       isMinimized: false,
       position: { x: 350, y: 350 },
+      size: { width: 900, height: 700 },
+      zIndex: 1000,
+    },
+    team: {
+      isOpen: false,
+      isMinimized: false,
+      position: { x: 400, y: 400 },
       size: { width: 900, height: 700 },
       zIndex: 1000,
     },
@@ -246,7 +256,6 @@ function App() {
       // Escape closes modals
       if (e.key === "Escape") {
         setIsSearchOpen(false);
-        setIsAIAssistantOpen(false);
         setIsSummaryReportOpen(false);
       }
     };
@@ -571,7 +580,7 @@ function App() {
           return prevItems;
         } else {
           const timestamp = Date.now();
-          const newPricingItems: PricingItem[] = SHOPS.map((shop) => ({
+          const newPricingItems: PricingItem[] = shops.map((shop) => ({
             id: `item-${timestamp}-${shop.id}`,
             sku: sku,
             shopId: shop.id,
@@ -927,7 +936,7 @@ function App() {
       });
     }
 
-    const targetShopName = SHOPS.find((s) => s.id === targetShopId)?.name;
+    const targetShopName = shops.find((s) => s.id === targetShopId)?.name;
     toast.success(`Imported ${importSummary.count} rows for ${targetShopName}`);
 
     setIsImportModalOpen(false);
@@ -993,8 +1002,13 @@ function App() {
     }));
   };
 
+  if (!role) {
+    return <RoleSelection members={teamMembers} onSelectRole={(r, id) => { setRole(r); if(id) setActiveMemberId(id); }} />;
+  }
+
   return (
     <MainLayout
+      role={role}
       currentView={view}
       setView={setView}
       isDarkMode={isDarkMode}
@@ -1023,24 +1037,24 @@ function App() {
             </svg>
           </button>
 
-          {/* AI Assistant Button */}
           <button
-            onClick={() => setIsAIAssistantOpen(true)}
-            className="p-2 text-slate-500 hover:text-shopee-orange hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-full transition-colors tooltip"
-            data-tooltip="AI Assistant"
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors tooltip"
+            data-tooltip="Settings"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+
+          <button
+            onClick={() => { setRole(null); setActiveMemberId(''); }}
+            className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors tooltip flex items-center gap-1"
+            data-tooltip="Logout / Switch Role"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
 
@@ -1187,8 +1201,8 @@ function App() {
         </>
       }
     >
-      {view === "analytics" && (
-        <AnalyticsView
+      {view === "analytics" && role === "manager" && (
+        <AnalyticsView shops={shops}
           data={salesData}
           products={products}
           goals={goals}
@@ -1205,26 +1219,17 @@ function App() {
           setDateRange={setDateRange}
           pricingItems={pricingItems}
           onEditProduct={handleEditProduct}
+          teamReports={teamReports}
+          teamMembers={teamMembers}
+          teamTasks={teamTasks}
+          teamTaskCompletions={teamTaskCompletions}
+          teamIssues={teamIssues}
         />
       )}
 
-      {view === "tasks" && (
-        <TaskTrackerView
-          tasks={tasks}
-          completions={taskCompletions}
-          onToggleTask={handleToggleTask}
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
-          workLogs={workLogs}
-          onUpdateWorkLog={handleUpdateWorkLog}
-          pricingItems={pricingItems}
-          salesData={salesData}
-        />
-      )}
 
       {view === "pricing" && (
-        <PricingView
+        <PricingView shops={shops}
           items={pricingItems}
           onUpdateItems={handleUpdatePricing}
           onRequestDelete={handleRequestDeletePricing}
@@ -1232,7 +1237,7 @@ function App() {
       )}
 
       {view === "competitors" && (
-        <CompetitorView
+        <CompetitorView shops={shops}
           competitors={competitors}
           onUpdateCompetitors={handleUpdateCompetitors}
           pricingItems={pricingItems}
@@ -1241,7 +1246,7 @@ function App() {
       )}
 
       {view === "videos" && (
-        <VideoTrackerView
+        <VideoTrackerView shops={shops}
           videoLogs={videoLogs}
           pricingItems={pricingItems}
           onAddLog={(shopId) => {
@@ -1257,7 +1262,34 @@ function App() {
         />
       )}
 
-      {view === "campaigns" && <CampaignGeneratorView />}
+      {view === "team" && (
+        <TeamKPIView
+          role={role}
+          activeMemberId={activeMemberId}
+          members={teamMembers}
+          reports={teamReports}
+          tasks={teamTasks}
+          taskCompletions={teamTaskCompletions}
+          issues={teamIssues}
+          projects={teamProjects}
+          shops={shops}
+          onUpdateMembers={(newMembers) => {
+            const removedIds = teamMembers.filter(m => !newMembers.find(nm => nm.id === m.id)).map(m => m.id);
+            setTeamMembers(newMembers);
+            if (removedIds.length > 0) {
+              setTeamReports(teamReports.filter(r => !removedIds.includes(r.memberId)));
+              setTeamIssues(teamIssues.filter(i => !removedIds.includes(i.memberId)));
+              setTeamProjects(teamProjects.filter(p => !removedIds.includes(p.memberId)));
+              setTeamTaskCompletions(teamTaskCompletions.filter(tc => !removedIds.includes(tc.memberId)));
+            }
+          }}
+          onUpdateReports={setTeamReports}
+          onUpdateTasks={setTeamTasks}
+          onUpdateTaskCompletions={setTeamTaskCompletions}
+          onUpdateIssues={setTeamIssues}
+          onUpdateProjects={setTeamProjects}
+        />
+      )}
 
       <ConfirmationModal
         isOpen={confirmModal.isOpen}
@@ -1267,7 +1299,7 @@ function App() {
         onCancel={closeConfirm}
       />
 
-      <ImportSelectionModal
+      <ImportSelectionModal shops={shops}
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onConfirm={handleConfirmImport}
@@ -1285,16 +1317,10 @@ function App() {
         onClose={() => setIsRecoveryPanelOpen(false)}
       />
 
-      {/* AI Assistant */}
-      <AIAssistant
-        isOpen={isAIAssistantOpen}
-        onClose={() => setIsAIAssistantOpen(false)}
-        salesData={salesData}
-        pricingItems={pricingItems}
-      />
+      {/* AI Assistant Removed */}
 
       {/* Global Search */}
-      <GlobalSearch
+      <GlobalSearch shops={shops}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         salesData={salesData}
@@ -1307,7 +1333,7 @@ function App() {
       />
 
       {/* Summary Report */}
-      <SummaryReport
+      <SummaryReport shops={shops}
         isOpen={isSummaryReportOpen}
         onClose={() => setIsSummaryReportOpen(false)}
         salesData={salesData}
@@ -1329,7 +1355,7 @@ function App() {
         className="hidden"
         accept=".xlsx, .xls"
       />
-      <InputModal
+      <InputModal shops={shops}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddData}
@@ -1337,7 +1363,7 @@ function App() {
         existingData={salesData}
       />
 
-      <ProductModal
+      <ProductModal shops={shops}
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
         onSubmit={handleSaveProduct}
@@ -1345,7 +1371,7 @@ function App() {
         initialData={editingProduct}
       />
 
-      <VideoLogModal
+      <VideoLogModal shops={shops}
         isOpen={isVideoModalOpen}
         onClose={() => setIsVideoModalOpen(false)}
         onSubmit={handleAddVideoLog}
@@ -1381,6 +1407,13 @@ function App() {
         isSyncing={pocketbase.isSyncing}
       />
 
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        shops={shops}
+        onUpdateShops={setShops}
+      />
+
       {/* Floating Windows */}
       <Window
         id="competitors"
@@ -1398,7 +1431,7 @@ function App() {
         onSizeChange={(size) => handleWindowSizeChange("competitors", size)}
         onFocus={() => handleWindowFocus("competitors")}
       >
-        <CompetitorView
+        <CompetitorView shops={shops}
           competitors={competitors}
           onUpdateCompetitors={handleUpdateCompetitors}
           pricingItems={pricingItems}
@@ -1420,7 +1453,7 @@ function App() {
         onSizeChange={(size) => handleWindowSizeChange("pricing", size)}
         onFocus={() => handleWindowFocus("pricing")}
       >
-        <PricingView
+        <PricingView shops={shops}
           items={pricingItems}
           onUpdateItems={handleUpdatePricing}
           onRequestDelete={handleRequestDeletePricing}

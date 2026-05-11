@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { SalesRecord, SHOPS, ShopID, Goal } from '../types';
+import { SalesRecord, ShopID, Goal, Shop } from '../types';
 import { formatCurrency, formatNumber } from '../utils';
 
 interface GoalSettingProps {
+  shops: Shop[];
   salesData: SalesRecord[];
   goals: Goal[];
   onAddGoal: (goal: Goal) => void;
@@ -11,7 +12,7 @@ interface GoalSettingProps {
 }
 
 export const GoalSetting: React.FC<GoalSettingProps> = ({ 
-  salesData, 
+  shops, salesData, 
   goals, 
   onAddGoal, 
   onDeleteGoal 
@@ -178,7 +179,7 @@ export const GoalSetting: React.FC<GoalSettingProps> = ({
                 className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
               >
                 <option value="all">All Shops</option>
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
                 ))}
               </select>
@@ -250,8 +251,8 @@ export const GoalSetting: React.FC<GoalSettingProps> = ({
                           {goal.period}
                         </span>
                         {goal.shopId !== 'all' && (
-                          <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: SHOPS.find(s => s.id === goal.shopId)?.color }}>
-                            {SHOPS.find(s => s.id === goal.shopId)?.name}
+                          <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: shops.find(s => s.id === goal.shopId)?.color }}>
+                            {shops.find(s => s.id === goal.shopId)?.name}
                           </span>
                         )}
                         {isComplete && (

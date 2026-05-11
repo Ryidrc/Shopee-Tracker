@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { VideoLog, SHOPS, ShopID, PricingItem } from '../types';
+import { VideoLog, ShopID, PricingItem, Shop } from '../types';
 import { generateVideoCaption } from '../services/groqService';
 
 interface VideoLogModalProps {
+  shops: Shop[];
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (log: VideoLog | Omit<VideoLog, 'id'>) => void;
@@ -14,7 +15,7 @@ interface VideoLogModalProps {
 }
 
 export const VideoLogModal: React.FC<VideoLogModalProps> = ({ 
-  isOpen, 
+  shops, isOpen, 
   onClose, 
   onSubmit, 
   pricingItems, 
@@ -177,7 +178,7 @@ export const VideoLogModal: React.FC<VideoLogModalProps> = ({
                 value={formData.shopId}
                 onChange={e => setFormData({...formData, shopId: e.target.value as ShopID})}
               >
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
                 ))}
               </select>

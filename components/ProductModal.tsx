@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Product, SHOPS, ShopID, PricingItem } from '../types';
+import { Product, ShopID, PricingItem, Shop } from '../types';
 
 interface ProductModalProps {
+  shops: Shop[];
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (product: Product) => void;
@@ -9,7 +10,7 @@ interface ProductModalProps {
   initialData?: Product | null;
 }
 
-export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onSubmit, pricingItems = [], initialData }) => {
+export const ProductModal: React.FC<ProductModalProps> = ({ shops, isOpen, onClose, onSubmit, pricingItems = [], initialData }) => {
   const [sku, setSku] = useState('');
   const [skuError, setSkuError] = useState('');
   
@@ -133,7 +134,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
                 value={formData.shopId}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, shopId: e.target.value as ShopID})}
               >
-                {SHOPS.map(shop => (
+                {shops.map(shop => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
                 ))}
               </select>

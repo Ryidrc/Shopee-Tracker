@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { SalesRecord, PricingItem, SHOPS, ShopID } from '../types';
+import { SalesRecord, PricingItem, ShopID, Shop } from '../types';
 import { 
   getSalesCoachInsight, 
   generateVideoCaption, 
@@ -18,6 +18,7 @@ interface Message {
 }
 
 interface AIAssistantProps {
+  shops: Shop[];
   isOpen: boolean;
   onClose: () => void;
   salesData: SalesRecord[];
@@ -29,7 +30,7 @@ interface AIAssistantProps {
 type AIMode = 'coach' | 'caption' | 'broadcast' | 'customer' | 'campaign';
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({
-  isOpen,
+  shops, isOpen,
   onClose,
   salesData,
   pricingItems,
@@ -72,9 +73,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setResponse('');
     
     try {
-      const shops = selectedShops.length > 0 
-        ? selectedShops.map(id => SHOPS.find(s => s.id === id)?.name || id)
-        : SHOPS.map(s => s.name);
+      const shopNames = selectedShops.length > 0 
+        ? selectedShops.map(id => shops.find(s => s.id === id)?.name || id)
+        : shops.map(s => s.name);
       
       const filteredData = salesData.filter(record => {
         const matchesShop = selectedShops.length === 0 || selectedShops.includes(record.shopId);
@@ -87,7 +88,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
       const result = await getSalesCoachInsight(filteredData, {
         startDate: dateRange?.start || 'All time',
         endDate: dateRange?.end || 'Present',
-        shopNames: shops,
+        shopNames: shopNames,
       });
       
       setResponse(result || 'No insights available.');
@@ -119,7 +120,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setResponse('');
     
     try {
-      const shopName = SHOPS.find(s => s.id === broadcastShop)?.name || broadcastShop;
+      const shopName = shops.find(s => s.id === broadcastShop)?.name || broadcastShop;
       const result = await generateBroadcastMessage(broadcastType, shopName, broadcastProduct.trim() || undefined);
       setResponse(result || 'Unable to generate broadcast.');
     } catch (error) {
@@ -324,7 +325,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Shop *</label>
                 <div className="flex gap-2">
-                  {SHOPS.map(shop => (
+                  {shops.map(shop => (
                     <button
                       key={shop.id}
                       onClick={() => setBroadcastShop(shop.id)}
@@ -380,7 +381,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
                 disabled={isLoading || !broadcastType.trim()}
                 className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
-                {isLoading ? 'Generating...' : `📢 Generate Broadcast for ${SHOPS.find(s => s.id === broadcastShop)?.name}`}
+                {isLoading ? 'Generating...' : `📢 Generate Broadcast for ${shops.find(s => s.id === broadcastShop)?.name}`}
               </button>
             </div>
           )}

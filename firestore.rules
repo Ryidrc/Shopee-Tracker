@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow all users (authenticated or not) to read and write appData.
+    // The app does not use Firebase Authentication; access is controlled
+    // by keeping the project config private (not public).
+    match /appData/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

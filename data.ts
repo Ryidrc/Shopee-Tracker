@@ -1,5 +1,5 @@
 
-import { PricingItem, VideoLog } from './types';
+import { PricingItem, VideoLog, TeamMember, KPIReport } from './types';
 
 // Updated Logic: FlashSale and Promotion are now Percentages (0-100), not fixed amounts.
 const calculateInitialTotal = (hargaJual: number, biaya1250: number, voucherPct: number, flashSalePct: number, promotionPct: number, affiliate: number, admin: number, ongkir: number) => {
@@ -233,3 +233,14 @@ export const INITIAL_VIDEO_LOGS: VideoLog[] = [
   { id: 'v55', date: '2026-01-03', shopId: 'shop3', sku: 'MP064', videoCode: 'MP064-001', views: 0, likes: 0, orders: 0, concept: 'Unboxing' },
   { id: 'v56', date: '2026-01-03', shopId: 'shop3', sku: 'MP068', videoCode: 'MP068-001', views: 0, likes: 0, orders: 0, concept: 'Unboxing' },
 ];
+
+export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
+  { id: 'm1', name: 'Budi Santoso', color: '#1D9E75', managedShopIds: ['shop1', 'shop2'] },
+  { id: 'm2', name: 'Sari Dewi', color: '#378ADD', managedShopIds: ['shop3'] },
+  { id: 'm3', name: 'Rizky Pratama', color: '#BA7517', managedShopIds: ['shop1', 'shop3'] },
+];
+
+export const INITIAL_KPI_REPORTS: KPIReport[] = [
+  // Dummy data will be populated dynamically or we can just leave it empty initially
+];
+
