@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TeamMember, KPIReport, TeamTask, TeamTaskCompletion, Issue, ProjectIdea, Shop } from '../types';
 import { Plus, X, ChevronLeft, AlertCircle, CheckCircle, TrendingUp, TrendingDown, ClipboardList, Lightbulb, User, Clock } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -31,11 +31,20 @@ export const TeamKPIView: React.FC<TeamKPIViewProps> = ({
 
   const viewMemberId = role === 'employee' ? activeMemberId : selectedMemberId;
 
+  useEffect(() => {
+    if (viewMemberId && !members.find(m => m.id === viewMemberId)) {
+      // Only cleanup selectedMemberId if it's the one causing problems (manager mode)
+      // If it's activeMemberId (employee mode), clearing selectedMemberId won't help, just prevents loop
+      if (selectedMemberId) {
+        setSelectedMemberId(null);
+      }
+    }
+  }, [viewMemberId, members, selectedMemberId]);
+
   if (viewMemberId) {
     const member = members.find(m => m.id === viewMemberId);
     if (!member) {
-      setSelectedMemberId(null);
-      return null;
+      return <div className="p-8 text-center text-slate-500">Loading member profile...</div>;
     }
     return (
       <MemberDetail 
